@@ -1,5 +1,10 @@
 #!/bin/sh
 
+# Modified 2026-06-24 by belfner for an unofficial backend-less GitHub Pages deployment.
+# Fail fast so a failed pybabel/render step aborts the build instead of shipping stale or
+# incomplete HTML.
+set -eu
+
 echo "Combining Javascript Code..."
 cat javascript/core/*.js > combined.js
 cat javascript/core/curve_detection/*.js >> combined.js

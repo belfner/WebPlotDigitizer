@@ -15,6 +15,8 @@
 
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>
+
+    Modified 2026-06-24 by belfner for an unofficial backend-less GitHub Pages deployment.
 #}
 
 <div class="wpd-menu">
@@ -40,7 +42,8 @@
             <li id="wpd-helpmenu-manual" onclick="window.open('/docs/', '_blank');">{{ _("User Manual") }}</li>
             {% else %}
             <li id="wpd-helpmenu-manual" onclick="window.open('https://automeris.io/docs/', '_blank');">{{ _("User Manual") }}</li>
-            <li id="wpd-helpmenu-manual" onclick="window.open('https://github.com/automeris-io/WebPlotDigitizer/issues', '_blank');">{{ _("Report Issues") }}</li>
+            <li id="wpd-helpmenu-issues" onclick="window.open('https://github.com/belfner/WebPlotDigitizer/issues', '_blank');">{{ _("Report Issues") }}</li>
+            <li id="wpd-helpmenu-source" onclick="window.open('https://github.com/belfner/WebPlotDigitizer', '_blank');">{{ _("Source Code") }}</li>
             {% endif %}
         </ul>
     </div>

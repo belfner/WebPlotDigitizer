@@ -17,6 +17,7 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>
 */
 
+// Modified 2026-06-24 by belfner for an unofficial backend-less GitHub Pages deployment.
 var wpd = wpd || {};
 
 wpd.initApp = function() { // This is run when the page loads.
@@ -50,7 +51,9 @@ wpd.loadDefaultImage = function() {
 wpd.handleLaunchArgs = function() {
     // fetch a project with specific ID from the backend if a projectid argument is provided:
     let projectId = wpd.args.getValue("projectId");
-    if (projectId == null) {
+    if (projectId == null || !wpd.hasCloudBackend()) {
+        // Loading a cloud project requires the Automeris backend (/api/files, /download/...),
+        // which is absent in this static deployment. Always fall back to the default image.
         wpd.loadDefaultImage();
     } else {
         wpd.saveResume.loadCloudProject(projectId);

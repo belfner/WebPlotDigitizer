@@ -17,14 +17,17 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>
 */
 
+// Modified 2026-06-24 by belfner for an unofficial backend-less GitHub Pages deployment.
 var wpd = wpd || {};
 
 wpd.log = function() {
     // Capture some basic info that helps WPD development.
     // Never capture anything about the data here!
 
-    // if we're running inside electron, then skip
-    if (wpd.browserInfo.isElectronBrowser() || wpd.isLocalhost()) {
+    // Skip analytics when there is no Automeris cloud backend (static deployment,
+    // localhost, or Electron). Without this guard the static site issues a /api/analytics
+    // request on every page load that 404s on GitHub Pages.
+    if (!wpd.hasCloudBackend()) {
         return;
     }
 

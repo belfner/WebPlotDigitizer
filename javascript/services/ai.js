@@ -17,6 +17,7 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>
 */
 
+// Modified 2026-06-24 by belfner for an unofficial backend-less GitHub Pages deployment.
 var wpd = wpd || {};
 
 wpd.ai = (function() {
@@ -35,6 +36,13 @@ wpd.ai = (function() {
     }
 
     function assist() {
+        // AI Assist requires the proprietary Automeris vision backend, which is absent in
+        // this static deployment. The toolbar button is hidden in local mode; guard direct
+        // calls so they fail cleanly instead of hitting /api/vision/*.
+        if (!wpd.hasCloudBackend()) {
+            wpd.messagePopup.show(wpd.gettext('ai-assist-title'), "AI Assist is unavailable in this static deployment.");
+            return;
+        }
         showQuota();
         wpd.popup.show('ai-assist-dialog');
         if ($status == null) {
@@ -48,6 +56,9 @@ wpd.ai = (function() {
     }
 
     async function runQuery() {
+        if (!wpd.hasCloudBackend()) {
+            return;
+        }
         $status.innerHTML = "running...";
         $runBtn.disabled = true;
         wpd.graphicsWidget.resetData();

@@ -31,6 +31,18 @@ wpd.isLocalhost = function() {
     );
 };
 
+// Modified 2026-06-24 by belfner for an unofficial backend-less GitHub Pages deployment.
+// This build is served as a static site with no Automeris cloud backend. The flag below
+// gates every network call that targets the proprietary backend so the static site never
+// attempts /api/* requests or a /login redirect. Defined here (above the on-load login
+// check) because build.sh concatenates javascript/services/*.js alphabetically, so cloud.js
+// must define this predicate before it is first used.
+wpd.staticPagesDeployment = true;
+
+wpd.hasCloudBackend = function() {
+    return !wpd.staticPagesDeployment && !wpd.isOffline() && !wpd.isLocalhost();
+};
+
 wpd.isUserLoggedIn = function() {
     return new Promise((resolve, reject) => {
         fetch("/api/user", {
@@ -52,7 +64,7 @@ wpd.isUserLoggedIn = function() {
 }
 
 // check if user is logged in on-load
-if (!wpd.isOffline() && !wpd.isLocalhost()) {
+if (wpd.hasCloudBackend()) {
     wpd.isUserLoggedIn().then(() => {
         console.log("logged in");
     }, (err) => {
@@ -63,6 +75,10 @@ if (!wpd.isOffline() && !wpd.isLocalhost()) {
 
 wpd.getQuotaLimits = function() {
     return new Promise((resolve, reject) => {
+        if (!wpd.hasCloudBackend()) {
+            reject("cloud backend unavailable in static deployment");
+            return;
+        }
         fetch("/api/quota", {
             method: "get",
             credentials: "include",
@@ -83,7 +99,7 @@ wpd.getQuotaLimits = function() {
 
 wpd.cloudNewImage = function() {
     return new Promise((resolve, reject) => {
-        if (wpd.isOffline()) {
+        if (!wpd.hasCloudBackend()) {
             resolve();
             return;
         }
@@ -179,6 +195,10 @@ wpd.CloudProject = class {
 
     download() {
         return new Promise((resolve, reject) => {
+            if (!wpd.hasCloudBackend()) {
+                reject("cloud backend unavailable in static deployment");
+                return;
+            }
             this._fetchProjectFileList(this.projectId).then(
                 (fileList) => this._processFileList(fileList),
                 (err) => reject(err)

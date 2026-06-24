@@ -17,12 +17,17 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>
 */
 
+// Modified 2026-06-24 by belfner for an unofficial backend-less GitHub Pages deployment.
 var wpd = wpd || {};
 
 wpd.showPrefs = function() {
     wpd.popup.show('user-prefs-dialog');
 
     // fetch prefs from the server
+    if (!wpd.hasCloudBackend()) {
+        document.getElementById('user-prefs-language').value = "english";
+        return;
+    }
     fetch("/api/prefs").then(r => r.json()).then(body => {
         document.getElementById('user-prefs-language').value = body["language"];
     }).catch(e => {
@@ -39,6 +44,10 @@ wpd.savePrefs = function() {
         "language": document.getElementById('user-prefs-language').value
     };
     console.log(data);
+    if (!wpd.hasCloudBackend()) {
+        wpd.popup.close('user-prefs-dialog');
+        return;
+    }
     fetch("/api/prefs", {
         method: "post",
         headers: {

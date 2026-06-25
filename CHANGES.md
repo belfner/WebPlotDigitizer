@@ -4,6 +4,21 @@ This fork adapts the WebPlotDigitizer frontend (AGPL v3, upstream tag `v5.3.0`)
 for an unofficial backend-less static deployment on GitHub Pages. All changes are
 by belfner, dated 2026-06-24.
 
+## Disabled features
+
+This deployment is permanently backend-less: `wpd.staticPagesDeployment` is
+hardcoded to `true` and compiled into `wpd.min.js`, so the following Automeris
+backend features are disabled for every visitor, with no runtime toggle:
+
+- AI Assist (autogenerate calibration and datasets). The toolbar button is
+  emitted only in cloud mode, and `wpd.ai.assist()` / `wpd.ai.runQuery()`
+  short-circuit before any `/api/vision/*` call.
+- User accounts and login (the on-load `/api/user` check and `/login` redirect).
+- Cloud project save/load and the `?projectId=...` cloud fetch.
+- Usage quota display.
+- Analytics reporting.
+- Server-side preferences (the language defaults to English).
+
 ## Functional changes
 
 - Added a static-deployment capability gate in `javascript/services/cloud.js`

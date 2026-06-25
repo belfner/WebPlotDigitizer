@@ -24,14 +24,6 @@ Everything runs client-side in your browser:
 - Image import and PDF import (via pdf.js).
 - Local project save/load (JSON and `.tar`) and data export (CSV and more).
 
-## Scope
-
-The cloud features of WebPlotDigitizer (user accounts, cloud project
-save/load, usage quota, analytics, and "AI Assist") are part of the proprietary
-Automeris backend. That backend is owned by Automeris LLC and is not part of this
-static deployment, so those features are served by the official site at
-https://automeris.io instead.
-
 ## Source and license
 
 The WebPlotDigitizer frontend is distributed under the
@@ -42,9 +34,6 @@ The WebPlotDigitizer frontend is distributed under the
 - Original upstream: https://github.com/automeris-io/WebPlotDigitizer (tag `v5.3.0`)
 - Fork changes: [`CHANGES.md`](CHANGES.md)
 - Attribution and provenance: [`NOTICE.md`](NOTICE.md)
-
-Automeris "AI Assist" and other related cloud-based systems are closed source and
-owned by Automeris LLC (owned by Ankit Rohatgi).
 
 ## Issues
 

@@ -880,9 +880,15 @@ wpd.graphicsWidget = (function() {
         document.addEventListener("keydown", function(ev) {
             const target = ev.target;
             const tagName = (target != null && target.tagName != null) ? target.tagName.toUpperCase() : "";
-            // Let native text editing handle undo inside form fields and editable popups.
-            if (tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "SELECT" ||
-                (target != null && target.isContentEditable === true)) {
+            // Let native text editing handle undo only inside actual text-entry fields and editable
+            // popups. Push buttons (e.g. the algorithm Run button) keep focus after a click, so a
+            // bare INPUT check would swallow Ctrl+Z there and block undo of the operation just run.
+            const textInputTypes = ["text", "search", "url", "tel", "email", "password", "number",
+                "date", "datetime-local", "month", "week", "time"];
+            const isTextField = tagName === "TEXTAREA" ||
+                (tagName === "INPUT" && textInputTypes.indexOf((target.type || "text").toLowerCase()) >= 0) ||
+                (target != null && target.isContentEditable === true);
+            if (isTextField) {
                 return;
             }
             const isUndoRedoModifier = ev.ctrlKey || ev.metaKey;

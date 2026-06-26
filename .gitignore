@@ -7,3 +7,4 @@ wpd_node.js
 experiments
 dist
 .venv
+locale/*/LC_MESSAGES/*.mo

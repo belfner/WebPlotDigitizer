@@ -22,7 +22,7 @@
 <!-- axes calibration -->
 <div id="axes-calibration-sidebar" class="sidebar">
     <p class="sidebar-title">{{ _("Axes Calibration") }}</p>
-    <p>{{ _("Click points to select and use cursor keys to adjust positions. Use Shift+Arrow for faster movement. Click complete when finished.") }}</p>
+    <p>{{ _("Left-click to place each point. Drag a placed point to move it, or select it and use the cursor keys (Shift+Arrow for larger steps). Hold Alt while clicking to place a point near an existing one. Ctrl+Z undoes, Ctrl+Shift+Z redoes. Click complete when finished.") }}</p>
     <p align="center"><input type="button" value="{{ _("Complete!") }}" style="width: 120px;" onclick="wpd.alignAxes.getCornerValues();" /></p>
 </div>
 
@@ -36,6 +36,11 @@
     <p>
         <input type="button" value="{{ _("Delete Point") }} (D)" onclick="wpd.acquireData.deletePoint();" style="width: 115px;" id="delete-point-button">
         <input type="button" value="{{ _("Edit Labels") }} (E)" id="edit-data-labels" onclick="wpd.acquireData.editLabels();" style="display: none; width: 115px;">
+    </p>
+    <p class="sidebar-help">{{ _("Left-click adds a point, Shift+drag moves the nearest point, Ctrl+click removes it. Ctrl+Z undoes, Ctrl+Shift+Z redoes. Adjust Point (S) keeps the rectangle-select and value-override tools.") }}</p>
+    <p align="center">
+        <input type="button" value="{{ _("Undo") }}" style="width: 115px;" onclick="wpd.acquireData.undo();">
+        <input type="button" value="{{ _("Redo") }}" style="width: 115px;" onclick="wpd.acquireData.redo();">
     </p>
     <br />
     <p class="sidebar-title">{{ _("Automatic Extraction") }}</p>

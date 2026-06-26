@@ -29,7 +29,7 @@ wpd.AxesCalibrator = class {
 wpd.XYAxesCalibrator = class extends wpd.AxesCalibrator {
 
     pickCorners() {
-        let tool = new wpd.AxesCornersTool(this._calibration, this._isEditing);
+        let tool = new wpd.AxesCornersTool(this._calibration, this._isEditing, "xy");
         wpd.graphicsWidget.setTool(tool);
         wpd.sidebar.show("xy-axes-sidebar");
         if (this._isEditing) {
@@ -109,7 +109,7 @@ wpd.XYAxesCalibrator = class extends wpd.AxesCalibrator {
 wpd.BarAxesCalibrator = class extends wpd.AxesCalibrator {
 
     pickCorners() {
-        let tool = new wpd.AxesCornersTool(this._calibration, this._isEditing);
+        let tool = new wpd.AxesCornersTool(this._calibration, this._isEditing, "bar");
         wpd.graphicsWidget.setTool(tool);
         wpd.sidebar.show("bar-axes-sidebar");
         if (this._isEditing) {
@@ -157,7 +157,7 @@ wpd.BarAxesCalibrator = class extends wpd.AxesCalibrator {
 wpd.PolarAxesCalibrator = class extends wpd.AxesCalibrator {
 
     pickCorners() {
-        let tool = new wpd.AxesCornersTool(this._calibration, this._isEditing);
+        let tool = new wpd.AxesCornersTool(this._calibration, this._isEditing, "polar");
         wpd.graphicsWidget.setTool(tool);
         wpd.sidebar.show("polar-axes-sidebar");
         if (this._isEditing) {
@@ -210,7 +210,7 @@ wpd.PolarAxesCalibrator = class extends wpd.AxesCalibrator {
 wpd.TernaryAxesCalibrator = class extends wpd.AxesCalibrator {
 
     pickCorners() {
-        let tool = new wpd.AxesCornersTool(this._calibration, this._isEditing);
+        let tool = new wpd.AxesCornersTool(this._calibration, this._isEditing, "ternary");
         wpd.graphicsWidget.setTool(tool);
         wpd.sidebar.show('ternary-axes-sidebar');
         if (this._isEditing) {
@@ -250,7 +250,7 @@ wpd.TernaryAxesCalibrator = class extends wpd.AxesCalibrator {
 wpd.MapAxesCalibrator = class extends wpd.AxesCalibrator {
 
     pickCorners() {
-        var tool = new wpd.AxesCornersTool(this._calibration, this._isEditing);
+        var tool = new wpd.AxesCornersTool(this._calibration, this._isEditing, "map");
         wpd.graphicsWidget.setTool(tool);
         wpd.sidebar.show("map-axes-sidebar");
         if (this._isEditing) {
@@ -289,7 +289,7 @@ wpd.MapAxesCalibrator = class extends wpd.AxesCalibrator {
 wpd.CircularChartRecorderCalibrator = class extends wpd.AxesCalibrator {
 
     pickCorners() {
-        let tool = new wpd.AxesCornersTool(this._calibration, this._isEditing);
+        let tool = new wpd.AxesCornersTool(this._calibration, this._isEditing, "circular-chart-recorder");
         wpd.graphicsWidget.setTool(tool);
         wpd.sidebar.show('ccr-axes-sidebar');
         if (this._isEditing) {
@@ -409,6 +409,47 @@ wpd.alignAxes = (function() {
                 wpd.graphicsWidget.setRepainter(new wpd.AlignmentCornersRepainter(calibration, axesTypeString));
             }
         }
+    }
+
+    // Per-axis-type connected calibration-point pairs eligible for the click-drag-release pair
+    // placement gesture. Pairs are dense index pairs into the calibration point list. Only XY, Bar,
+    // and Map enable pairs; Polar/Ternary/CircularChartRecorder/Image place a single point per click.
+    // The gesture engine is parameterized off this so enabling another type later is a one-line edit.
+    function getCalibrationPointPairs(axesTypeString) {
+        switch (axesTypeString) {
+            case "xy":
+                return [[0, 1], [2, 3]];
+            case "bar":
+                return [[0, 1]];
+            case "map":
+                return [[0, 1]];
+            default:
+                return [];
+        }
+    }
+
+    function _calibrateButtonId() {
+        if (calibrator instanceof wpd.XYAxesCalibrator) return "xy-axes-calibrate";
+        if (calibrator instanceof wpd.BarAxesCalibrator) return "bar-axes-calibrate";
+        if (calibrator instanceof wpd.MapAxesCalibrator) return "map-axes-calibrate";
+        if (calibrator instanceof wpd.PolarAxesCalibrator) return "polar-axes-calibrate";
+        if (calibrator instanceof wpd.TernaryAxesCalibrator) return "ternary-axes-calibrate";
+        if (calibrator instanceof wpd.CircularChartRecorderCalibrator) return "ccr-axes-calibrate";
+        return null;
+    }
+
+    // Enable the active type's Calibrate button only when every calibration point is placed. Called
+    // after each add/pair/move and after undo/redo, so undoing a placement re-disables Complete.
+    function updateCalibrationCompletion() {
+        const buttonId = _calibrateButtonId();
+        if (buttonId === null) {
+            return;
+        }
+        const $btn = document.getElementById(buttonId);
+        if ($btn === null) {
+            return;
+        }
+        $btn.disabled = !(calibration != null && calibration.getCount() === calibration.maxPointCount);
     }
 
     function calibrationCompleted() {
@@ -685,6 +726,8 @@ wpd.alignAxes = (function() {
     return {
         start: initiatePlotAlignment,
         calibrationCompleted: calibrationCompleted,
+        getCalibrationPointPairs: getCalibrationPointPairs,
+        updateCalibrationCompletion: updateCalibrationCompletion,
         zoomCalPoint: zoomCalPoint,
         getCornerValues: getCornerValues,
         pickCorners: pickCorners,

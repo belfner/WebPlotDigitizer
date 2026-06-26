@@ -157,7 +157,7 @@ wpd.CircularChartRecorderAxes = class {
             return "calibration error!";
         }
         let timeStr = wpd.dateConverter.formatDateNumber(dataVal[0], this.timeFormat);
-        return timeStr + ', ' + dataVal[1].toExponential(4);
+        return timeStr + ', ' + wpd.utils.formatLiveValue(dataVal[1]);
     }
 
     name = "Circular Chart";

@@ -93,12 +93,41 @@ wpd.utils = (function() {
         return string.charAt(0).toUpperCase() + string.substr(1).toLowerCase();
     }
 
+    // Plain-decimal band for the live cursor readout: values with magnitude in
+    // [PLAIN_LOW, PLAIN_HIGH) print in plain decimal notation; values smaller or
+    // larger print in scientific notation. The band stays inside JS Number
+    // toString limits (>= 1e-6, < 1e21) so the plain branch never re-introduces
+    // exponential notation.
+    const PLAIN_LOW = 1e-4;
+    const PLAIN_HIGH = 1e6;
+    const PLAIN_SIG_FIGS = 5;
+    const SCI_MANTISSA_DIGITS = 4;
+
+    // Format one calibrated coordinate value for the live cursor readout. Each
+    // value is evaluated on its own magnitude, so axes format independently:
+    // plain decimal (PLAIN_SIG_FIGS significant figures, trailing zeros stripped)
+    // within the band, scientific (SCI_MANTISSA_DIGITS mantissa digits) outside.
+    function formatLiveValue(value) {
+        if (!Number.isFinite(value)) {
+            return String(value);
+        }
+        if (value === 0) {
+            return "0";
+        }
+        const magnitude = Math.abs(value);
+        if (magnitude >= PLAIN_LOW && magnitude < PLAIN_HIGH) {
+            return Number(value.toPrecision(PLAIN_SIG_FIGS)).toString();
+        }
+        return value.toExponential(SCI_MANTISSA_DIGITS);
+    }
+
     return {
         addToCollection: addToCollection,
         createOptionsHTML: createOptionsHTML,
         deleteFromCollection: deleteFromCollection,
         filterCollection: filterCollection,
         findKey: findKey,
+        formatLiveValue: formatLiveValue,
         integerRange: integerRange,
         invertObject: invertObject,
         isInteger: isInteger,

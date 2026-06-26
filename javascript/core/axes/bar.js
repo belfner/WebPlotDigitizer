@@ -99,7 +99,7 @@ wpd.BarAxes = (function() {
 
         this.pixelToLiveString = function(pxi, pyi) {
             var dataVal = this.pixelToData(pxi, pyi);
-            return dataVal[0].toExponential(4);
+            return wpd.utils.formatLiveValue(dataVal[0]);
         };
 
         this.isLog = function() {

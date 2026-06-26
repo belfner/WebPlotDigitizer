@@ -229,14 +229,14 @@ wpd.XYAxes = (function() {
             if (isXDate) {
                 rtnString += wpd.dateConverter.formatDateNumber(dataVal[0], initialFormattingX);
             } else {
-                rtnString += dataVal[0].toExponential(4);
+                rtnString += wpd.utils.formatLiveValue(dataVal[0]);
             }
             rtnString += ', ';
 
             if (isYDate) {
                 rtnString += wpd.dateConverter.formatDateNumber(dataVal[1], initialFormattingY);
             } else {
-                rtnString += dataVal[1].toExponential(4);
+                rtnString += wpd.utils.formatLiveValue(dataVal[1]);
             }
             return rtnString;
         };

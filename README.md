@@ -44,7 +44,9 @@ reproduces in the unmodified upstream WebPlotDigitizer, report it to the
 
 ## Documentation
 
-The original user manual is at https://automeris.io/docs/.
+A user guide for this deployment is hosted at
+https://belfner.github.io/WebPlotDigitizer/docs/ and is reachable in-app from the
+**User Manual** button.
 
 ## Donate
 

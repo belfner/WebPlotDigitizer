@@ -33,7 +33,7 @@ jobs:
       - name: Install Python build dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install Jinja2 Babel
+          python -m pip install Jinja2 Babel mkdocs
       - name: Build WebPlotDigitizer
         run: npm run build
       - name: Assemble Pages artifact
@@ -61,6 +61,8 @@ jobs:
           GNU AGPL v3 or later. See LICENSE.
           EOF
           touch dist/.nojekyll
+      - name: Build documentation
+        run: mkdocs build --strict -d dist/docs
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

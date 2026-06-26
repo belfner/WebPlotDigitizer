@@ -34,8 +34,15 @@ backend features are disabled for every visitor, with no runtime toggle:
     `/api/vision/*`.
   - `main.js`: a `?projectId=...` argument falls back to the default image
     instead of fetching a cloud project.
-- Repointed visible documentation links in `templates/_sidebars.html` from the
-  root-relative `/docs/...` to `https://automeris.io/docs/...`.
+- Repointed the in-app **User Manual** links (the `templates/_sidebars.html`
+  start sidebar and the `templates/_menubar.html` Help menu) to the fork's own
+  hosted user guide at `docs/`. The calibration sidebars' input-format footnotes
+  reference the upstream specification at `https://automeris.io/docs/`.
+- Disabled the Plotly export buttons (`Graph in Plotly`, `Export to Plotly`) in
+  `templates/_popups.html`. Plotly retired the chart-studio `/external` import
+  endpoint these POST to, so the export is non-functional in upstream
+  WebPlotDigitizer and in this fork; the markup, handlers, and
+  `javascript/services/plotly.js` are retained with explanatory comments.
 - Repointed the "Report Issues" menu item to this fork and added a "Source Code"
   menu item (`templates/_menubar.html`).
 - Added an unofficial / non-affiliation / source notice to the About popup

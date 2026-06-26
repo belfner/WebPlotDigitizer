@@ -1,0 +1,23 @@
+# Original documentation for the unofficial backend-less WebPlotDigitizer
+# static deployment. Added 2026-06-25 by belfner.
+site_name: WebPlotDigitizer (unofficial)
+site_url: https://belfner.github.io/WebPlotDigitizer/docs/
+site_description: >
+  User guide for the unofficial, backend-less WebPlotDigitizer static
+  deployment. Covers loading images, axis calibration, manual and automatic
+  data acquisition, measurements, and exporting.
+docs_dir: docs
+site_dir: site
+theme:
+  name: readthedocs
+  favicon: img/favicon.ico
+copyright: >
+  Original documentation for the unofficial fork, by belfner. WebPlotDigitizer
+  is (C) Ankit Rohatgi, distributed under the GNU AGPL v3.
+markdown_extensions:
+  - admonition
+nav:
+  - Getting Started: index.md
+  - Digitizing Charts: digitize.md
+  - Measurements: measurements.md
+  - Handling Digitized Data: data.md

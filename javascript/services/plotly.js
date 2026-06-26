@@ -20,6 +20,11 @@
 var wpd = wpd || {};
 
 wpd.plotly = (function() {
+    // NOTE: Plotly retired the chart-studio external-data import. A POST to
+    // https://chart-studio.plotly.com/external now 308-redirects to a marketing
+    // page that returns HTTP 405, so send() is non-functional in upstream
+    // WebPlotDigitizer and in this fork. The Plotly export buttons are disabled
+    // in templates/_popups.html; this code is retained for reference.
     function send(dataObject) {
         var formContainer = document.createElement('div'),
             formElement = document.createElement('form'),

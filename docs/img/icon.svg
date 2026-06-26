@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Neutral generic plot-digitizer glyph for the unofficial WebPlotDigitizer
+     static deployment. Added 2026-06-25 by belfner to replace the Automeris
+     logo so the deployment does not use Automeris trademarks. -->
+<svg width="32" height="32" viewBox="0 0 32 32" version="1.1"
+     xmlns="http://www.w3.org/2000/svg">
+  <rect width="32" height="32" fill="none"/>
+  <path d="M5 4 V27 H28" fill="none" stroke="#333333" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="8,22 14,15 19,18 26,8" fill="none" stroke="#1f77b4"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="8" cy="22" r="2.2" fill="#d62728"/>
+  <circle cx="14" cy="15" r="2.2" fill="#d62728"/>
+  <circle cx="19" cy="18" r="2.2" fill="#d62728"/>
+  <circle cx="26" cy="8" r="2.2" fill="#d62728"/>
+</svg>

@@ -26,8 +26,27 @@ wpd.pointEditHelpers = {
     // Screen/CSS-px movement above which a press-drag-release counts as a drag rather than a click.
     DRAG_THRESHOLD: 5,
 
-    // Image-px hit-test radius. Matches the long-standing dataset/calibration feel.
-    HIT_THRESHOLD: 50,
+    // Image-px hit-test radius for grabbing/removing an existing point.
+    HIT_THRESHOLD: 12.5,
+
+    // Custom "remove" cursor: a red disc with a white X, hotspot at its center (12,12). No native
+    // cursor reads as "delete", so this makes Ctrl/Cmd-to-remove unambiguous. Falls back to the
+    // not-allowed keyword if SVG cursors are unavailable.
+    REMOVE_CURSOR: "url(\"data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%3E%3Ccircle%20cx='12'%20cy='12'%20r='10'%20fill='%23d00'/%3E%3Cline%20x1='8'%20y1='8'%20x2='16'%20y2='16'%20stroke='%23fff'%20stroke-width='3'/%3E%3Cline%20x1='16'%20y1='8'%20x2='8'%20y2='16'%20stroke='%23fff'%20stroke-width='3'/%3E%3C/svg%3E\") 12 12, not-allowed",
+
+    // Map a would-be click operation to the cursor that signals it.
+    cursorForOp: function(op) {
+        switch (op) {
+            case 'add':
+                return 'crosshair';
+            case 'move':
+                return 'grab';
+            case 'remove':
+                return wpd.pointEditHelpers.REMOVE_CURSOR;
+            default:
+                return 'default'; // the modifier would do nothing at this position
+        }
+    },
 
     // Capture button + modifier state on mousedown so the whole gesture uses one consistent
     // operation; a modifier released before mouseup must not flip add/move/remove.

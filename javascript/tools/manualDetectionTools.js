@@ -1022,14 +1022,37 @@ wpd.DataPointEditTool = (function() {
             }
         };
 
+        // the operation a click would perform right now, given the held modifiers and hover target
+        const _hoverOp = function(ev, imagePos) {
+            const mods = helpers.captureModifiers(ev);
+            if (helpers.isRemoveModifier(mods)) {
+                return dataset.findNearestPixel(imagePos.x, imagePos.y, helpers.HIT_THRESHOLD) >= 0 ?
+                    'remove' : 'noop';
+            }
+            if (mods.shiftKey) {
+                return dataset.findNearestPixel(imagePos.x, imagePos.y, helpers.HIT_THRESHOLD) >= 0 ?
+                    'move' : 'noop';
+            }
+            return 'add'; // plain left always adds a new point
+        };
+
         this.onMouseMove = function(ev, pos, imagePos) {
-            if (!_gestureActive || _mode !== 'move' || _moveIndex < 0) {
+            if (_gestureActive) {
+                if (_mode === 'move' && _moveIndex >= 0) {
+                    if (ev.target != null && ev.target.style != null) {
+                        ev.target.style.cursor = "grabbing";
+                    }
+                    dataset.setPixelAt(_moveIndex, imagePos.x, imagePos.y);
+                    wpd.graphicsWidget.resetData();
+                    wpd.graphicsWidget.forceHandlerRepaint();
+                    wpd.graphicsWidget.updateZoomOnEvent(ev);
+                }
                 return;
             }
-            dataset.setPixelAt(_moveIndex, imagePos.x, imagePos.y);
-            wpd.graphicsWidget.resetData();
-            wpd.graphicsWidget.forceHandlerRepaint();
-            wpd.graphicsWidget.updateZoomOnEvent(ev);
+            // hovering: show the cursor for the operation the held modifiers would perform on click
+            if (ev.target != null && ev.target.style != null) {
+                ev.target.style.cursor = helpers.cursorForOp(_hoverOp(ev, imagePos));
+            }
         };
 
         this.onMouseUp = function(ev, pos, imagePos) {

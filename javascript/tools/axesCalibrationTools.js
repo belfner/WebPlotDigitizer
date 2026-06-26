@@ -103,7 +103,7 @@ wpd.AxesCornersTool = class {
             return; // Ctrl/Cmd is a no-op in calibration
         }
 
-        const nearest = this._calibration.findNearestPoint(imagePos.x, imagePos.y);
+        const nearest = this._calibration.findNearestPoint(imagePos.x, imagePos.y, this._helpers.HIT_THRESHOLD);
 
         if (this._mods.shiftKey) {
             if (nearest >= 0) {
@@ -136,13 +136,30 @@ wpd.AxesCornersTool = class {
         wpd.graphicsWidget.forceHandlerRepaint();
     }
 
+    _hoverOp(ev, nearest) {
+        // the operation a click would perform right now, given the held modifiers and hover target
+        const mods = this._helpers.captureModifiers(ev);
+        if (this._helpers.isRemoveModifier(mods)) {
+            return 'noop'; // Ctrl/Cmd never removes calibration points
+        }
+        if (mods.shiftKey) {
+            return nearest >= 0 ? 'move' : 'noop';
+        }
+        if (mods.altKey) {
+            return 'add'; // Alt forces a fresh placement even near a point
+        }
+        return nearest >= 0 ? 'move' : 'add'; // plain: auto-grab a nearby point, else add
+    }
+
     onMouseMove(ev, pos, imagePos) {
-        const nearest = this._calibration.findNearestPoint(imagePos.x, imagePos.y);
+        const nearest = this._calibration.findNearestPoint(imagePos.x, imagePos.y, this._helpers.HIT_THRESHOLD);
         if (ev.target != null && ev.target.style != null) {
             if (this._mode === 'move') {
                 ev.target.style.cursor = "grabbing";
+            } else if (this._mode === 'add') {
+                ev.target.style.cursor = "crosshair"; // placing (possibly dragging the pair)
             } else {
-                ev.target.style.cursor = nearest >= 0 ? "grab" : "crosshair";
+                ev.target.style.cursor = this._helpers.cursorForOp(this._hoverOp(ev, nearest));
             }
         }
 

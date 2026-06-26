@@ -57,13 +57,9 @@ wpd.acquireData = (function() {
         wpd.graphicsWidget.setTool(new wpd.DataPointEditTool(axes, dataset));
     }
 
-    // manualSelection (A) and deletePoint (D) both install the unified editor; the modifier held at
-    // mousedown selects add/move/remove. Kept as named entry points for existing call sites/keys.
+    // manualSelection (A) installs the unified editor; the modifier held at mousedown selects
+    // add/move/remove. Kept as a named entry point for the sidebar button and the 'a' key.
     function manualSelection() {
-        pointEdit();
-    }
-
-    function deletePoint() {
         pointEdit();
     }
 
@@ -142,9 +138,6 @@ wpd.acquireData = (function() {
 
     function switchToolOnKeyPress(alphaKey) {
         switch (alphaKey) {
-            case 'd':
-                deletePoint();
-                break;
             case 'a':
                 manualSelection();
                 break;
@@ -161,7 +154,7 @@ wpd.acquireData = (function() {
 
     function isToolSwitchKey(keyCode) {
         if (wpd.keyCodes.isAlphabet(keyCode, 'a') || wpd.keyCodes.isAlphabet(keyCode, 's') ||
-            wpd.keyCodes.isAlphabet(keyCode, 'd') || wpd.keyCodes.isAlphabet(keyCode, 'e')) {
+            wpd.keyCodes.isAlphabet(keyCode, 'e')) {
             return true;
         }
         return false;
@@ -172,7 +165,6 @@ wpd.acquireData = (function() {
         pointEdit: pointEdit,
         manualSelection: manualSelection,
         adjustPoints: adjustPoints,
-        deletePoint: deletePoint,
         clearAll: clearAll,
         undo: undo,
         redo: redo,

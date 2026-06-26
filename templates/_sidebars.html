@@ -30,14 +30,13 @@
 <div id="acquireDataSidebar" class="sidebar">
     <p class="sidebar-title">{{ _("Manual Extraction") }}</p>
     <p>
-        <input type="button" value="{{ _("Add Point") }} (A)" onclick="wpd.acquireData.manualSelection();" style="width:115px;" id="manual-select-button">
-        <input type="button" value="{{ _("Adjust Point") }} (S)" onClick="wpd.acquireData.adjustPoints();" style="width: 115px;" id="manual-adjust-button">
+        <input type="button" value="{{ _("Add/Remove") }} (A)" onclick="wpd.acquireData.manualSelection();" style="width:115px;" id="manual-select-button">
+        <input type="button" value="{{ _("Adjust") }} (S)" onClick="wpd.acquireData.adjustPoints();" style="width: 115px;" id="manual-adjust-button">
     </p>
     <p>
-        <input type="button" value="{{ _("Delete Point") }} (D)" onclick="wpd.acquireData.deletePoint();" style="width: 115px;" id="delete-point-button">
         <input type="button" value="{{ _("Edit Labels") }} (E)" id="edit-data-labels" onclick="wpd.acquireData.editLabels();" style="display: none; width: 115px;">
     </p>
-    <p class="sidebar-help">{{ _("Left-click adds a point, Shift+drag moves the nearest point, Ctrl+click removes it. Ctrl+Z undoes, Ctrl+Shift+Z redoes. Adjust Point (S) keeps the rectangle-select and value-override tools.") }}</p>
+    <p class="sidebar-help">{{ _("Left-click adds a point, Shift+drag moves the nearest point, Ctrl+click removes it. Ctrl+Z undoes, Ctrl+Shift+Z redoes. Adjust (S) keeps the rectangle-select and value-override tools.") }}</p>
     <p align="center">
         <input type="button" value="{{ _("Undo") }}" style="width: 115px;" onclick="wpd.acquireData.undo();">
         <input type="button" value="{{ _("Redo") }}" style="width: 115px;" onclick="wpd.acquireData.redo();">

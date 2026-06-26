@@ -167,6 +167,17 @@ QUnit.test("Sub-threshold drag places a single point; polar never pair-drags", f
     assert.equal(polarCal.getCount(), 1, "polar drag places a single point (no pair-drag)");
 });
 
+QUnit.test("Point selection survives undo+redo of an add", function(assert) {
+    const cal = _makeCalibration(4);
+    const tool = new wpd.AxesCornersTool(cal, false, "xy");
+    _clickPlace(tool, _calMods(), 10, 10);
+    assert.deepEqual(cal.getSelectedPoints(), [0], "added point is selected");
+
+    this.undoManager.undo();
+    this.undoManager.redo();
+    assert.deepEqual(cal.getSelectedPoints(), [0], "selection restored after undo+redo so arrow-nudge still targets it");
+});
+
 QUnit.test("Arrow-key nudge is one undoable move per keypress", function(assert) {
     const cal = _makeCalibration(4);
     const tool = new wpd.AxesCornersTool(cal, false, "xy");

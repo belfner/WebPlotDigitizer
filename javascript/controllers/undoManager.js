@@ -95,6 +95,32 @@ wpd.UndoManager = class {
         this.updateUI();
     }
 
+    dropCalibrationActions() {
+        // Remove every calibration-editing action from the stack, fixing up the action index. Called
+        // when Calibrate commits the axes transform: undoing those points afterward would leave the
+        // transform calibrated to stale positions. Dataset/crop actions are untouched.
+        let removedBeforeIndex = 0;
+        const kept = [];
+        for (let i = 0; i < this._actions.length; i++) {
+            if (this._actions[i].affectsCalibration === true) {
+                if (i < this._actionIndex) {
+                    removedBeforeIndex++;
+                }
+            } else {
+                kept.push(this._actions[i]);
+            }
+        }
+        this._actions = kept;
+        this._actionIndex -= removedBeforeIndex;
+        if (this._actionIndex < 0) {
+            this._actionIndex = 0;
+        }
+        if (this._actionIndex > this._actions.length) {
+            this._actionIndex = this._actions.length;
+        }
+        this.updateUI();
+    }
+
     updateUI() {
         // enable/disable undo and redo buttons (absent during acquisition and in unit tests)
         const $undo = document.getElementById("image-editing-undo");

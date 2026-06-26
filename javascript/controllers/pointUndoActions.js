@@ -149,6 +149,9 @@ wpd.DatasetPointsBatchAction = class extends wpd.ReversibleAction {
 wpd.CalibrationSnapshotAction = class extends wpd.ReversibleAction {
     constructor(calibration, beforeSnapshot, afterSnapshot, afterRestore, recalibrateAxes) {
         super();
+        // marks this as a calibration-editing action so the UndoManager can drop it once Calibrate
+        // commits the axes transform (undoing calibration points after Complete would desync it)
+        this.affectsCalibration = true;
         this._calibration = calibration;
         this._beforeSnapshot = beforeSnapshot;
         this._afterSnapshot = afterSnapshot;
@@ -180,6 +183,7 @@ wpd.CalibrationPointsBatchAction = class extends wpd.CalibrationSnapshotAction {
 wpd.CalibrationPointMoveAction = class extends wpd.ReversibleAction {
     constructor(calibration, pointIndex, oldPixel, newPixel, afterRestore, recalibrateAxes) {
         super();
+        this.affectsCalibration = true;
         this._calibration = calibration;
         this._pointIndex = pointIndex;
         this._oldPixel = {px: oldPixel.px, py: oldPixel.py};

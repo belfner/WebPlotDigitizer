@@ -159,30 +159,33 @@ wpd.AxesCornersTool = class {
         wpd.alignAxes.updateCalibrationCompletion();
     }
 
-    _commitAdd(ev, imagePos) {
+    _commitAdd(ev, pos, imagePos) {
         const nextSlot = this._calibration.getCount();
         if (nextSlot >= this._calibration.maxPointCount) {
             return;
         }
         const pair = this._pendingPair;
-        const canPairDrag = pair != null && this._isDraggingAdd &&
-            pair[0] === nextSlot && pair[1] >= nextSlot;
+        // recompute the drag from the release position so a fast or off-canvas release (handled by
+        // onDocumentMouseUp without an in-canvas mousemove) still triggers the pair placement
+        const dragged = this._isDraggingAdd || this._helpers.exceedsDragThreshold(this._pressPos, pos);
+        const canPairDrag = pair != null && dragged && pair[0] === nextSlot && pair[1] >= nextSlot;
 
         const before = this._calibration.getStateSnapshot();
         if (canPairDrag) {
             // slot A at the press position, slot B at the release position, one atomic step
             this._calibration.addPoint(this._pressImagePos.x, this._pressImagePos.y, 0, 0);
             this._calibration.addPoint(imagePos.x, imagePos.y, 0, 0);
-            const after = this._calibration.getStateSnapshot();
             this._calibration.unselectAll();
             this._calibration.selectPoint(this._calibration.getCount() - 1);
+            // snapshot AFTER selecting so redo restores the selection (arrow-nudge stays usable)
+            const after = this._calibration.getStateSnapshot();
             this._undoManager().insertAction(new wpd.CalibrationPointsBatchAction(
                 this._calibration, before, after, this._afterRestore));
         } else {
             this._calibration.addPoint(imagePos.x, imagePos.y, 0, 0);
-            const after = this._calibration.getStateSnapshot();
             this._calibration.unselectAll();
             this._calibration.selectPoint(this._calibration.getCount() - 1);
+            const after = this._calibration.getStateSnapshot();
             this._undoManager().insertAction(new wpd.CalibrationPointAddAction(
                 this._calibration, before, after, this._afterRestore));
         }
@@ -201,7 +204,7 @@ wpd.AxesCornersTool = class {
         if (this._mode === 'move') {
             this._commitMove(ev, imagePos);
         } else if (this._mode === 'add') {
-            this._commitAdd(ev, imagePos);
+            this._commitAdd(ev, pos, imagePos);
         }
         this._mode = 'noop';
         this._pendingPair = null;

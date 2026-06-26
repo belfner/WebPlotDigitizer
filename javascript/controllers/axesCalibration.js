@@ -490,6 +490,9 @@ wpd.alignAxes = (function() {
         if (!calibrator.align()) {
             return;
         }
+        // The transform is now committed; drop the calibration-point edit history so a later undo
+        // cannot move calibration points out from under the finalized axes transform.
+        wpd.appData.getUndoManager().dropCalibrationActions();
         wpd.sidebar.clear();
         wpd.tree.refresh();
         let dsNameColl = wpd.appData.getPlotData().getDatasetNames();

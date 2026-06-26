@@ -810,24 +810,29 @@ wpd.graphicsWidget = (function() {
         $canvasDiv = document.getElementById('canvasDiv');
         $graphicsContainer = document.getElementById('graphicsContainer');
 
-        // Wheel zoom centered on the cursor (replaces native scroll panning)
-        $graphicsContainer.addEventListener('wheel', zoomWheel, {
-            passive: false
-        });
-
-        // Re-fit / clamp / repaint when the viewport size actually changes. A
-        // ResizeObserver fires after layoutManager applies its (debounced) height
-        // change, avoiding a stale render against the pre-resize dimensions.
-        if (typeof ResizeObserver !== 'undefined') {
-            const ro = new ResizeObserver(function() {
-                if (originalImageData == null) {
-                    return;
-                }
-                zoomRatio = Math.max(zoomRatio, getContainZoomRatio());
-                clampPan();
-                scheduleRender();
+        // The graphics container drives cursor-centered wheel zoom and viewport
+        // resize handling. Guard the registration so init completes even when the
+        // container is unavailable, such as the minimal DOM used by unit tests.
+        if ($graphicsContainer != null) {
+            // Wheel zoom centered on the cursor (replaces native scroll panning)
+            $graphicsContainer.addEventListener('wheel', zoomWheel, {
+                passive: false
             });
-            ro.observe($graphicsContainer);
+
+            // Re-fit / clamp / repaint when the viewport size actually changes. A
+            // ResizeObserver fires after layoutManager applies its (debounced) height
+            // change, avoiding a stale render against the pre-resize dimensions.
+            if (typeof ResizeObserver !== 'undefined') {
+                const ro = new ResizeObserver(function() {
+                    if (originalImageData == null) {
+                        return;
+                    }
+                    zoomRatio = Math.max(zoomRatio, getContainZoomRatio());
+                    clampPan();
+                    scheduleRender();
+                });
+                ro.observe($graphicsContainer);
+            }
         }
 
         // Extended crosshair

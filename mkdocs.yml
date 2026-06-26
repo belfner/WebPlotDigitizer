@@ -10,6 +10,7 @@ docs_dir: docs
 site_dir: site
 theme:
   name: readthedocs
+  custom_dir: overrides
   favicon: img/favicon.ico
 copyright: >
   Original documentation for the unofficial fork, by belfner. WebPlotDigitizer

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{#
+    Override only the browser-tab title so it reads "WebPlotDigitizer Docs
+    (unofficial)" while the in-page sidebar header keeps config.site_name
+    ("WebPlotDigitizer (unofficial)"). Added 2026-06-25 by belfner.
+#}
+{% block htmltitle %}
+  <title>{% if page and page.title and not page.is_homepage %}{{ page.title }} - {% endif %}WebPlotDigitizer Docs (unofficial)</title>
+{% endblock %}

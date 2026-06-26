@@ -31,20 +31,33 @@ function _wpdRunCallback(callback) {
     }
 }
 
-// --- Dataset actions (lightweight inverse for plain datasets) ---
+function _wpdCloneMetadata(metadata) {
+    if (metadata === null || metadata === undefined) {
+        return metadata;
+    }
+    return JSON.parse(JSON.stringify(metadata));
+}
+
+// --- Dataset actions (lightweight inverse) ---
+// DatasetPointAddAction / DatasetPointRemoveAction are reserved for adds/removes that do NOT change
+// the dataset schema (no metadata-key creation/reordering) and are not part of a point group. Bar-
+// label adds and grouped-point adds/removes mutate _pixelMetadataKeys and/or _tuples, so the owning
+// tool must route those through DatasetPointsBatchAction (full before/after snapshot) instead.
+// Point metadata is deep-cloned so later label/value-override edits cannot mutate the undo payload.
 
 wpd.DatasetPointAddAction = class extends wpd.ReversibleAction {
     constructor(dataset, pixelIndex, pixel, afterRestore) {
         super();
         this._dataset = dataset;
         this._pixelIndex = pixelIndex;
-        this._pixel = {x: pixel.x, y: pixel.y, metadata: pixel.metadata};
+        this._pixel = {x: pixel.x, y: pixel.y, metadata: _wpdCloneMetadata(pixel.metadata)};
         this._afterRestore = afterRestore;
     }
 
     execute() {
         // redo: reinsert the point at its original index
-        this._dataset.insertPixel(this._pixelIndex, this._pixel.x, this._pixel.y, this._pixel.metadata);
+        this._dataset.insertPixel(this._pixelIndex, this._pixel.x, this._pixel.y,
+            _wpdCloneMetadata(this._pixel.metadata));
         _wpdRunCallback(this._afterRestore);
     }
 
@@ -81,7 +94,7 @@ wpd.DatasetPointRemoveAction = class extends wpd.ReversibleAction {
         super();
         this._dataset = dataset;
         this._pixelIndex = pixelIndex;
-        this._pixel = {x: pixel.x, y: pixel.y, metadata: pixel.metadata};
+        this._pixel = {x: pixel.x, y: pixel.y, metadata: _wpdCloneMetadata(pixel.metadata)};
         this._afterRestore = afterRestore;
     }
 
@@ -92,7 +105,8 @@ wpd.DatasetPointRemoveAction = class extends wpd.ReversibleAction {
     }
 
     undo() {
-        this._dataset.insertPixel(this._pixelIndex, this._pixel.x, this._pixel.y, this._pixel.metadata);
+        this._dataset.insertPixel(this._pixelIndex, this._pixel.x, this._pixel.y,
+            _wpdCloneMetadata(this._pixel.metadata));
         _wpdRunCallback(this._afterRestore);
     }
 };

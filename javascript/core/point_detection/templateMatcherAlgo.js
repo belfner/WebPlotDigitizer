@@ -87,6 +87,11 @@ wpd.TemplateMatcherAlgo = class {
         }
         if (templ == null) {
             console.log("empty search template!");
+            // run() cleared dataSeries synchronously above; still signal completion so the caller
+            // can record the clear as an undo step and close the busy/disabled UI.
+            if (this._oncompleteCallback != null) {
+                this._oncompleteCallback();
+            }
             return;
         }
 

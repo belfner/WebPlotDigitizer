@@ -37,9 +37,11 @@ wpd.algoManager = (function() {
     // most recent run is allowed to record its undo action.
     let _algoRunToken = 0;
 
-    function _insertAlgoBatchIfChanged(targetDataset, beforeSnapshot, afterSnapshot) {
+    function _insertAlgoBatchIfChanged(undoManager, targetDataset, beforeSnapshot, afterSnapshot) {
         // One atomic undo step per algorithm run. A run that did not change the dataset records
         // nothing. Redo restores the captured after-snapshot; it never re-runs the algorithm.
+        // undoManager is captured at run start so an async completion records into the manager that
+        // was active when the run mutated the dataset, even if the user switched page/file since.
         if (JSON.stringify(beforeSnapshot) === JSON.stringify(afterSnapshot)) {
             return;
         }
@@ -48,7 +50,7 @@ wpd.algoManager = (function() {
             wpd.graphicsWidget.forceHandlerRepaint();
             wpd.dataPointCounter.setCount(targetDataset.getCount());
         };
-        wpd.appData.getUndoManager().insertAction(
+        undoManager.insertAction(
             new wpd.DatasetPointsBatchAction(targetDataset, beforeSnapshot, afterSnapshot, afterRestore));
     }
 
@@ -244,13 +246,14 @@ wpd.algoManager = (function() {
         // async template matcher, the after-snapshot and the action insertion happen in the
         // completion callback; the run token rejects a stale completion.
         const targetDataset = dataset;
+        const targetUndoManager = wpd.appData.getUndoManager();
         const beforeSnapshot = targetDataset.getStateSnapshot();
         const runToken = ++_algoRunToken;
         if (isTemplateMatching) {
             algo.setOnCompleteCallback(() => {
                 if (runToken === _algoRunToken) {
                     const afterSnapshot = targetDataset.getStateSnapshot();
-                    _insertAlgoBatchIfChanged(targetDataset, beforeSnapshot, afterSnapshot);
+                    _insertAlgoBatchIfChanged(targetUndoManager, targetDataset, beforeSnapshot, afterSnapshot);
                 }
                 wpd.graphicsWidget.forceHandlerRepaint();
                 wpd.dataPointCounter.setCount(dataset.getCount());
@@ -261,7 +264,7 @@ wpd.algoManager = (function() {
         } else {
             algo.run(autoDetector, dataset, axes, imageData);
             const afterSnapshot = targetDataset.getStateSnapshot();
-            _insertAlgoBatchIfChanged(targetDataset, beforeSnapshot, afterSnapshot);
+            _insertAlgoBatchIfChanged(targetUndoManager, targetDataset, beforeSnapshot, afterSnapshot);
             wpd.graphicsWidget.forceHandlerRepaint();
             wpd.dataPointCounter.setCount(dataset.getCount());
             document.getElementById('algo-run-btn').disabled = false;

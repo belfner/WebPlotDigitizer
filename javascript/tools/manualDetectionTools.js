@@ -767,11 +767,8 @@ wpd.DataPointEditTool = (function() {
 
         let _mods = null;
         let _mode = 'noop'; // 'add' | 'move' | 'remove' | 'noop'
-        let _startPos = null;
-        let _startImagePos = null;
         let _gestureActive = false;
         let _suppressNextClick = false;
-        let _hasMoved = false;
         let _moveIndex = -1;
         let _moveOldPos = null;
 
@@ -897,7 +894,12 @@ wpd.DataPointEditTool = (function() {
             const tupleIndex = dataset.getTupleIndex(index);
             if (tupleIndex > -1) {
                 dataset.removeFromTupleAt(tupleIndex, index);
-                dataset.refreshTuplesAfterPixelRemoval(index);
+            }
+            // Always shift tuple references for a grouped dataset, even when the removed point was
+            // ungrouped (e.g. placed before point groups were enabled): references above the removed
+            // index would otherwise go stale.
+            dataset.refreshTuplesAfterPixelRemoval(index);
+            if (tupleIndex > -1) {
                 if (dataset.isTupleEmpty(tupleIndex)) {
                     dataset.removeTuple(tupleIndex);
                 }
@@ -998,11 +1000,8 @@ wpd.DataPointEditTool = (function() {
                 return; // left button only; middle-mouse pan is handled by the widget
             }
             _mods = helpers.captureModifiers(ev);
-            _startPos = pos;
-            _startImagePos = imagePos;
             _gestureActive = true;
             _suppressNextClick = false;
-            _hasMoved = false;
             _moveIndex = -1;
             _moveOldPos = null;
 
@@ -1026,9 +1025,6 @@ wpd.DataPointEditTool = (function() {
         this.onMouseMove = function(ev, pos, imagePos) {
             if (!_gestureActive || _mode !== 'move' || _moveIndex < 0) {
                 return;
-            }
-            if (helpers.exceedsDragThreshold(_startPos, pos)) {
-                _hasMoved = true;
             }
             dataset.setPixelAt(_moveIndex, imagePos.x, imagePos.y);
             wpd.graphicsWidget.resetData();

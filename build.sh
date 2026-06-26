@@ -9,6 +9,7 @@ echo "Combining Javascript Code..."
 cat javascript/core/*.js > combined.js
 cat javascript/core/curve_detection/*.js >> combined.js
 cat javascript/core/point_detection/templateMatcherAlgo.js >> combined.js
+cat javascript/core/point_detection/templateMatcherWorker.js >> combined.js
 cat javascript/core/axes/*.js >> combined.js
 cat javascript/widgets/*.js >> combined.js
 cat javascript/tools/base/*.js >> combined.js

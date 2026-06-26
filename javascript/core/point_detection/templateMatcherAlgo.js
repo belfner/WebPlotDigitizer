@@ -99,7 +99,17 @@ wpd.TemplateMatcherAlgo = class {
         const yOffset = -(templ.boundingBox.ymin + templ.boundingBox.ymax) / 2.0 + (templ.originalBoundingBox.ymin + templ.originalBoundingBox.ymax) / 2.0;
         // match this template
         this.cancel();
-        this._worker = new Worker("javascript/core/point_detection/templateMatcherWorker.js");
+        // The worker source is bundled into wpd.min.js (and loaded as a normal script in
+        // dev mode) as wpd.templateMatcherWorkerBody, then run from a Blob URL. This avoids
+        // shipping a separate runtime .js file that every build/deploy path must remember to
+        // copy alongside the bundle.
+        const workerSource = "(" + wpd.templateMatcherWorkerBody.toString() + ")();";
+        const workerBlob = new Blob([workerSource], {
+            type: "application/javascript"
+        });
+        const workerUrl = URL.createObjectURL(workerBlob);
+        this._worker = new Worker(workerUrl);
+        URL.revokeObjectURL(workerUrl);
         this._worker.postMessage({
             templ: templ,
             matchThreshold: this._matchThreshold,

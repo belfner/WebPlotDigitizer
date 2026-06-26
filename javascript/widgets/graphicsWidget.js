@@ -875,6 +875,37 @@ wpd.graphicsWidget = (function() {
             }
         }, true);
 
+        // Global undo/redo. Lives outside the isCanvasInFocus gate so Ctrl+Z works right after a
+        // sidebar-triggered operation (e.g. an algorithm run) with no prior canvas mousedown.
+        document.addEventListener("keydown", function(ev) {
+            const target = ev.target;
+            const tagName = (target != null && target.tagName != null) ? target.tagName.toUpperCase() : "";
+            // Let native text editing handle undo inside form fields and editable popups.
+            if (tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "SELECT" ||
+                (target != null && target.isContentEditable === true)) {
+                return;
+            }
+            const isUndoRedoModifier = ev.ctrlKey || ev.metaKey;
+            if (!isUndoRedoModifier) {
+                return;
+            }
+            const key = ev.key;
+            if (key === "z" || key === "Z") {
+                ev.preventDefault();
+                ev.stopPropagation();
+                const undoManager = wpd.appData.getUndoManager();
+                if (ev.shiftKey) {
+                    undoManager.redo();
+                } else {
+                    undoManager.undo();
+                }
+            } else if (key === "y" || key === "Y") {
+                ev.preventDefault();
+                ev.stopPropagation();
+                wpd.appData.getUndoManager().redo();
+            }
+        }, false);
+
         wpd.zoomView.initZoom();
 
         // Paste image from clipboard

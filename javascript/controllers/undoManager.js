@@ -75,7 +75,18 @@ wpd.UndoManager = class {
         }
         this._actions.push(action);
         this._actionIndex++;
+        // Bounded history: keep only the most recent MAX_UNDO actions. Anything older becomes
+        // permanent (not reversible).
+        while (this._actions.length > wpd.UndoManager.MAX_UNDO) {
+            this._actions.shift();
+            this._actionIndex--;
+        }
         this.updateUI();
+    }
+
+    insertAndExecute(action) {
+        action.execute();
+        this.insertAction(action);
     }
 
     clear() {
@@ -85,20 +96,18 @@ wpd.UndoManager = class {
     }
 
     updateUI() {
-        // enable/disable undo and redo buttons
+        // enable/disable undo and redo buttons (absent during acquisition and in unit tests)
         const $undo = document.getElementById("image-editing-undo");
         const $redo = document.getElementById("image-editing-redo");
 
-        if (this.canUndo()) {
-            $undo.disabled = false;
-        } else {
-            $undo.disabled = true;
+        if ($undo !== null) {
+            $undo.disabled = !this.canUndo();
         }
-
-        if (this.canRedo()) {
-            $redo.disabled = false;
-        } else {
-            $redo.disabled = true;
+        if ($redo !== null) {
+            $redo.disabled = !this.canRedo();
         }
     }
 };
+
+// Maximum number of reversible actions retained. Oldest entries are dropped past this cap.
+wpd.UndoManager.MAX_UNDO = 100;

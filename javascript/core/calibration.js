@@ -128,6 +128,23 @@ wpd.Calibration = class {
         return this._selections.indexOf(index) >= 0;
     }
 
+    getStateSnapshot() {
+        // Capture the mutable point state for undo/redo and tests. Dense append-ordered storage.
+        return {
+            px: this._px.slice(),
+            py: this._py.slice(),
+            dp: this._dp.slice(),
+            selections: this._selections.slice()
+        };
+    }
+
+    restoreStateSnapshot(snapshot) {
+        this._px = snapshot.px.slice();
+        this._py = snapshot.py.slice();
+        this._dp = snapshot.dp.slice();
+        this._selections = snapshot.selections.slice();
+    }
+
     dump() {
         console.log(this._px);
         console.log(this._py);

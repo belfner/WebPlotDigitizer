@@ -53,12 +53,7 @@ wpd.imageEditing = {
     }
 };
 
-wpd.ReversibleAction = class {
-    constructor() {}
-    execute() {}
-    undo() {}
-};
-
+// wpd.ReversibleAction is defined in controllers/actionBase.js (loaded earlier).
 wpd.CropImageAction = class extends wpd.ReversibleAction {
     constructor(x0, y0, x1, y1) {
         super();

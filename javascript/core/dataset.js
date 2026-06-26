@@ -355,6 +355,21 @@ wpd.Dataset = class {
         this._tuples.forEach(tuple => tuple.push(...Array(count).fill(null)));
     }
 
+    refreshTuplesAfterPixelInsertion(insertedPixelIndex) {
+        // Symmetric to refreshTuplesAfterPixelRemoval: a pixel inserted at insertedPixelIndex shifts
+        // every existing tuple reference at or above that index up by one. The inserted pixel's own
+        // tuple membership is assigned separately by the caller.
+        for (let tupleIndex = 0; tupleIndex < this._tuples.length; tupleIndex++) {
+            const tuple = this._tuples[tupleIndex];
+
+            for (let groupIndex = 0; groupIndex < tuple.length; groupIndex++) {
+                if (tuple[groupIndex] !== null && tuple[groupIndex] >= insertedPixelIndex) {
+                    tuple[groupIndex]++;
+                }
+            }
+        }
+    }
+
     refreshTuplesAfterPixelRemoval(removedPixelIndex) {
         for (let tupleIndex = 0; tupleIndex < this._tuples.length; tupleIndex++) {
             const tuple = this._tuples[tupleIndex];
@@ -371,6 +386,32 @@ wpd.Dataset = class {
                 }
             }
         }
+    }
+
+    getStateSnapshot() {
+        // Full deep copy of all mutable dataset state, for batch/algorithm and grouped-point
+        // undo/redo where lightweight inverse ops cannot safely reverse point-group side effects.
+        return {
+            dataPoints: JSON.parse(JSON.stringify(this._dataPoints)),
+            connections: JSON.parse(JSON.stringify(this._connections)),
+            selections: this._selections.slice(),
+            pixelMetadataCount: this._pixelMetadataCount,
+            pixelMetadataKeys: JSON.parse(JSON.stringify(this._pixelMetadataKeys)),
+            metadata: JSON.parse(JSON.stringify(this._metadata)),
+            groupNames: this._groupNames.slice(),
+            tuples: JSON.parse(JSON.stringify(this._tuples))
+        };
+    }
+
+    restoreStateSnapshot(snapshot) {
+        this._dataPoints = JSON.parse(JSON.stringify(snapshot.dataPoints));
+        this._connections = JSON.parse(JSON.stringify(snapshot.connections));
+        this._selections = snapshot.selections.slice();
+        this._pixelMetadataCount = snapshot.pixelMetadataCount;
+        this._pixelMetadataKeys = JSON.parse(JSON.stringify(snapshot.pixelMetadataKeys));
+        this._metadata = JSON.parse(JSON.stringify(snapshot.metadata));
+        this._groupNames = snapshot.groupNames.slice();
+        this._tuples = JSON.parse(JSON.stringify(snapshot.tuples));
     }
 
     getMetadata() {

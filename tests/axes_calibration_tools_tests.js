@@ -30,6 +30,19 @@ QUnit.module(
                 return {x: x, y: y};
             });
             sinon.stub(wpd.alignAxes, "updateCalibrationCompletion");
+            // stubs for the drag-preview drawn on the hover layer during a pair-drag
+            sinon.stub(wpd.graphicsWidget, "resetHover");
+            sinon.stub(wpd.graphicsWidget, "imageToCanvasPx").callsFake(function(x, y) {
+                return {x: x, y: y};
+            });
+            const fakeCtx = {
+                font: "", fillStyle: "", strokeStyle: "", lineWidth: 0,
+                beginPath: function() {}, moveTo: function() {}, lineTo: function() {},
+                stroke: function() {}, arc: function() {}, fill: function() {},
+                fillRect: function() {}, fillText: function() {},
+                measureText: function() { return {width: 10}; }
+            };
+            sinon.stub(wpd.graphicsWidget, "getAllContexts").returns({hoverCtx: fakeCtx});
             this.undoManager = new wpd.UndoManager();
             sinon.stub(wpd.appData, "getUndoManager").returns(this.undoManager);
         },
@@ -146,6 +159,23 @@ QUnit.test("Pair-drag places two XY points atomically; undo pops both", function
     assert.equal(cal.getCount(), 0, "undo pops both points as one step");
     this.undoManager.redo();
     assert.equal(cal.getCount(), 2, "redo restores both");
+});
+
+QUnit.test("Pair-drag places the first point immediately on mousedown", function(assert) {
+    const cal = _makeCalibration(4);
+    const tool = new wpd.AxesCornersTool(cal, false, "xy");
+    const ev = _calMods();
+
+    tool.onMouseDown(ev, {x: 0, y: 0}, {x: 5, y: 6});
+    assert.equal(cal.getCount(), 1, "anchor placed on press, before any release");
+    assert.deepEqual({px: cal.getPoint(0).px, py: cal.getPoint(0).py}, {px: 5, py: 6}, "anchor at the press position");
+
+    tool.onMouseMove(ev, {x: 60, y: 60}, {x: 25, y: 26}); // drag previews the second point
+    tool.onMouseUp(ev, {x: 60, y: 60}, {x: 25, y: 26});
+    assert.equal(cal.getCount(), 2, "second point committed on release");
+
+    this.undoManager.undo();
+    assert.equal(cal.getCount(), 0, "press-place plus drag-commit collapse into one undo step");
 });
 
 QUnit.test("Sub-threshold drag places a single point; polar never pair-drags", function(assert) {

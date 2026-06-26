@@ -113,6 +113,16 @@ wpd.acquireData = (function() {
     function showSidebar() {
         wpd.sidebar.show('acquireDataSidebar');
         updateControlVisibility();
+        // load() activates the Add/Remove editor by default; reflect that as the pressed mode button
+        // so the auto-enabled mode reads as selected on entry.
+        const $select = document.getElementById('manual-select-button');
+        const $adjust = document.getElementById('manual-adjust-button');
+        if ($select !== null) {
+            $select.classList.add('pressed-button');
+        }
+        if ($adjust !== null) {
+            $adjust.classList.remove('pressed-button');
+        }
         wpd.dataPointCounter.setCount(dataset.getCount());
     }
 

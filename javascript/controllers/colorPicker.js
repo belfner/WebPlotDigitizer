@@ -238,9 +238,19 @@ wpd.colorPicker = (function() {
     function changeColorDistance() {
         let color_distance = parseFloat(document.getElementById('color-distance-value').value);
         getAutoDetectionData().colorDistance = color_distance;
+        // Live-update: while the filter overlay is showing, re-run it so the new distance
+        // is reflected immediately without toggling the button off and back on.
+        if (isColorFilterActive()) {
+            applyColorFilter();
+        }
     }
 
-    function testColorDetection() {
+    function isColorFilterActive() {
+        let repainter = wpd.graphicsWidget.getRepainter();
+        return repainter != null && repainter.painterName === 'colorFilterRepainter';
+    }
+
+    function applyColorFilter() {
         wpd.graphicsWidget.removeTool();
         wpd.graphicsWidget.removeRepainter();
         wpd.graphicsWidget.resetData();
@@ -252,12 +262,42 @@ wpd.colorPicker = (function() {
         let imageData = ctx.oriImageCtx.getImageData(0, 0, imageSize.width, imageSize.height);
         autoDetector.generateBinaryData(imageData);
         wpd.graphicsWidget.setRepainter(new wpd.ColorFilterRepainter());
+
+        let $btn = document.getElementById('filter-colors-btn');
+        if ($btn !== null) {
+            $btn.classList.add('pressed-button');
+        }
+    }
+
+    function clearColorFilter() {
+        wpd.graphicsWidget.removeTool();
+        wpd.graphicsWidget.removeRepainter();
+        wpd.graphicsWidget.resetData();
+
+        let $btn = document.getElementById('filter-colors-btn');
+        if ($btn !== null) {
+            $btn.classList.remove('pressed-button');
+        }
+    }
+
+    function testColorDetection() {
+        // Toggle: clicking Filter Colors again while the overlay is showing turns it back off.
+        if (isColorFilterActive()) {
+            clearColorFilter();
+        } else {
+            applyColorFilter();
+        }
     }
 
     function startPicker() {
         wpd.graphicsWidget.removeTool();
         wpd.graphicsWidget.removeRepainter();
         wpd.graphicsWidget.resetData();
+        // Tearing down the repainter clears the filter overlay, so reflect that on the toggle.
+        let $btn = document.getElementById('filter-colors-btn');
+        if ($btn !== null) {
+            $btn.classList.remove('pressed-button');
+        }
         if (getAutoDetectionData().colorDetectionMode === 'fg') {
             wpd.colorSelectionWidget.setParams(getFGPickerParams());
         } else {

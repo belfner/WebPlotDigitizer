@@ -349,6 +349,17 @@ wpd.dataMask = (function() {
     }
 
     function viewMask() {
+        // The mask overlay is shown both by the View tool and by the Box/Pen/Erase draw tools,
+        // which press the View button as a side effect. Clicking View while any of them shows the
+        // overlay turns it off and deactivates the active mask tool (its onRemove commits the mask
+        // via grabMask and clears the pressed buttons).
+        let repainter = wpd.graphicsWidget.getRepainter();
+        if (repainter != null && repainter.painterName === 'dataMaskPainter') {
+            wpd.graphicsWidget.removeTool();
+            wpd.graphicsWidget.removeRepainter();
+            wpd.graphicsWidget.resetData();
+            return;
+        }
         let tool = new wpd.ViewMaskTool();
         wpd.graphicsWidget.setTool(tool);
     }

@@ -52,23 +52,49 @@ wpd.acquireData = (function() {
         return wpd.appData.getPlotData().getAxesForDataset(getActiveDataset());
     }
 
+    function pointEdit() {
+        // unified GIMP-style editor: left = add, Shift+left = move, Ctrl/Cmd+left = remove
+        wpd.graphicsWidget.setTool(new wpd.DataPointEditTool(axes, dataset));
+    }
+
+    // manualSelection (A) and deletePoint (D) both install the unified editor; the modifier held at
+    // mousedown selects add/move/remove. Kept as named entry points for existing call sites/keys.
     function manualSelection() {
-        var tool = new wpd.ManualSelectionTool(axes, dataset);
-        wpd.graphicsWidget.setTool(tool);
+        pointEdit();
     }
 
     function deletePoint() {
-        var tool = new wpd.DeleteDataPointTool(axes, dataset);
-        wpd.graphicsWidget.setTool(tool);
+        pointEdit();
+    }
+
+    function clearAllAfterRestore() {
+        // re-establish the acquisition view after a clear-all undo (points/groups restored) or redo
+        // (dataset emptied)
+        wpd.graphicsWidget.removeTool();
+        wpd.graphicsWidget.resetData();
+        if (dataset.hasPointGroups()) {
+            wpd.pointGroups.showControls();
+            wpd.pointGroups.refreshControls();
+        } else {
+            wpd.pointGroups.hideControls();
+        }
+        wpd.graphicsWidget.setRepainter(new wpd.DataPointsRepainter(axes, dataset));
+        pointEdit();
+        wpd.graphicsWidget.forceHandlerRepaint();
+        wpd.dataPointCounter.setCount(dataset.getCount());
     }
 
     function confirmedClearAll() {
+        const before = dataset.getStateSnapshot();
         dataset.clearAll();
         wpd.pointGroups.hideControls();
         wpd.graphicsWidget.removeTool();
         wpd.graphicsWidget.resetData();
         wpd.dataPointCounter.setCount(dataset.getCount());
         wpd.graphicsWidget.removeRepainter();
+        const after = dataset.getStateSnapshot();
+        wpd.appData.getUndoManager().insertAction(
+            new wpd.DatasetPointsBatchAction(dataset, before, after, clearAllAfterRestore));
     }
 
     function clearAll() {
@@ -81,10 +107,11 @@ wpd.acquireData = (function() {
     }
 
     function undo() {
-        dataset.removeLastPixel();
-        wpd.graphicsWidget.resetData();
-        wpd.graphicsWidget.forceHandlerRepaint();
-        wpd.dataPointCounter.setCount(dataset.getCount());
+        wpd.appData.getUndoManager().undo();
+    }
+
+    function redo() {
+        wpd.appData.getUndoManager().redo();
     }
 
     function showSidebar() {
@@ -142,11 +169,13 @@ wpd.acquireData = (function() {
 
     return {
         load: load,
+        pointEdit: pointEdit,
         manualSelection: manualSelection,
         adjustPoints: adjustPoints,
         deletePoint: deletePoint,
         clearAll: clearAll,
         undo: undo,
+        redo: redo,
         showSidebar: showSidebar,
         switchToolOnKeyPress: switchToolOnKeyPress,
         isToolSwitchKey: isToolSwitchKey,

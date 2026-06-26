@@ -754,3 +754,358 @@ wpd.dataPointCounter = {
         }
     }
 };
+
+// Unified GIMP-style dataset point editor: left = add, Shift+left = move, Ctrl/Cmd+left = remove.
+// Replaces the modal add (ManualSelectionTool) and delete (DeleteDataPointTool) flows. The advanced
+// select/adjust workflows (rectangle select, Q/W cycle, value override) stay in AdjustDataPointTool.
+// Every edit is routed through the UndoManager: plain datasets use lightweight inverse actions;
+// bar-label and point-group datasets use a full before/after snapshot (DatasetPointsBatchAction)
+// because those mutate metadata keys and/or tuples.
+wpd.DataPointEditTool = (function() {
+    const Tool = function(axes, dataset) {
+        const helpers = wpd.pointEditHelpers;
+
+        let _mods = null;
+        let _mode = 'noop'; // 'add' | 'move' | 'remove' | 'noop'
+        let _startPos = null;
+        let _startImagePos = null;
+        let _gestureActive = false;
+        let _suppressNextClick = false;
+        let _hasMoved = false;
+        let _moveIndex = -1;
+        let _moveOldPos = null;
+
+        const _undoManager = function() {
+            return wpd.appData.getUndoManager();
+        };
+
+        const _cursorSnapshot = function() {
+            return {
+                tupleIndex: wpd.pointGroups.getCurrentTupleIndex(),
+                groupIndex: wpd.pointGroups.getCurrentGroupIndex()
+            };
+        };
+
+        const _refreshDisplay = function() {
+            wpd.graphicsWidget.resetData();
+            wpd.graphicsWidget.forceHandlerRepaint();
+            wpd.dataPointCounter.setCount(dataset.getCount());
+            if (dataset.hasPointGroups()) {
+                wpd.pointGroups.refreshControls();
+            }
+        };
+
+        // afterRestore for lightweight (plain) actions: repaint + counters only.
+        const _refresh = function() {
+            _refreshDisplay();
+        };
+
+        // afterRestore for grouped snapshot actions: restore the point-group cursor for the
+        // direction being applied, then repaint.
+        const _refreshGrouped = function(context) {
+            if (context != null) {
+                wpd.pointGroups.setCurrentTupleIndex(context.tupleIndex);
+                wpd.pointGroups.setCurrentGroupIndex(context.groupIndex);
+            }
+            _refreshDisplay();
+        };
+
+        const _performLabeledGroupedAdd = function(imagePos, hasPointGroups, labeled) {
+            const addPixelArgs = [imagePos.x, imagePos.y];
+            const tupleIndex = wpd.pointGroups.getCurrentTupleIndex();
+            const groupIndex = wpd.pointGroups.getCurrentGroupIndex();
+
+            let pointLabel = null;
+            if (labeled) {
+                // only add a label if point groups do not exist, or the current group is primary
+                if (!hasPointGroups || groupIndex === 0) {
+                    const mkeys = dataset.getMetadataKeys();
+                    const labelKey = "label";
+
+                    if (mkeys == null || mkeys.length === 0) {
+                        dataset.setMetadataKeys([labelKey]);
+                    } else if (mkeys.indexOf(labelKey) < 0) {
+                        dataset.setMetadataKeys([labelKey, ...mkeys]);
+                    }
+
+                    let count = dataset.getCount();
+                    if (hasPointGroups) {
+                        if (tupleIndex === null) {
+                            count = dataset.getTupleCount();
+                        } else {
+                            count = tupleIndex;
+                        }
+                    }
+                    pointLabel = axes.dataPointsLabelPrefix + count;
+                    addPixelArgs.push({
+                        [labelKey]: pointLabel
+                    });
+                }
+            }
+
+            const index = dataset.addPixel(...addPixelArgs);
+            wpd.graphicsHelper.drawPoint(imagePos, dataset.colorRGB.toRGBString(), pointLabel);
+
+            if (hasPointGroups) {
+                if (tupleIndex === null && groupIndex === 0) {
+                    const newTupleIndex = dataset.addTuple(index);
+                    wpd.pointGroups.setCurrentTupleIndex(newTupleIndex);
+                } else {
+                    dataset.addToTupleAt(tupleIndex, groupIndex, index);
+                }
+                wpd.pointGroups.nextGroup();
+            }
+            return index;
+        };
+
+        const _commitAdd = function(ev, imagePos) {
+            const hasPointGroups = dataset.hasPointGroups();
+            const labeled = axes.dataPointsHaveLabels === true;
+
+            if (!hasPointGroups && !labeled) {
+                // plain lightweight add
+                const index = dataset.addPixel(imagePos.x, imagePos.y);
+                wpd.graphicsHelper.drawPoint(imagePos, dataset.colorRGB.toRGBString());
+                _undoManager().insertAction(new wpd.DatasetPointAddAction(
+                    dataset, index, {x: imagePos.x, y: imagePos.y, metadata: undefined}, _refresh));
+                _refreshDisplay();
+                wpd.graphicsWidget.updateZoomOnEvent(ev);
+                wpd.events.dispatch("wpd.dataset.point.add", {axes: axes, dataset: dataset, index: index});
+                return;
+            }
+
+            // bar-label and/or grouped add: full snapshot batch
+            const before = dataset.getStateSnapshot();
+            const beforeContext = hasPointGroups ? _cursorSnapshot() : undefined;
+            const index = _performLabeledGroupedAdd(imagePos, hasPointGroups, labeled);
+            const after = dataset.getStateSnapshot();
+            const afterContext = hasPointGroups ? _cursorSnapshot() : undefined;
+            _undoManager().insertAction(new wpd.DatasetPointsBatchAction(
+                dataset, before, after, hasPointGroups ? _refreshGrouped : _refresh,
+                beforeContext, afterContext));
+            _refreshDisplay();
+            wpd.graphicsWidget.updateZoomOnEvent(ev);
+            wpd.events.dispatch("wpd.dataset.point.add", {axes: axes, dataset: dataset, index: index});
+        };
+
+        const _removeGroupedOrLabeled = function(index) {
+            dataset.removePixelAtIndex(index);
+            if (!dataset.hasPointGroups()) {
+                return;
+            }
+            // index is still the pre-refresh numbering, matching the old DeleteDataPointTool order
+            const tupleIndex = dataset.getTupleIndex(index);
+            if (tupleIndex > -1) {
+                dataset.removeFromTupleAt(tupleIndex, index);
+                dataset.refreshTuplesAfterPixelRemoval(index);
+                if (dataset.isTupleEmpty(tupleIndex)) {
+                    dataset.removeTuple(tupleIndex);
+                }
+                wpd.pointGroups.previousGroup();
+            }
+        };
+
+        const _commitRemove = function(ev, imagePos) {
+            const hitIndex = dataset.findNearestPixel(imagePos.x, imagePos.y, helpers.HIT_THRESHOLD);
+            if (hitIndex < 0) {
+                return; // no hit: no-op, no undo entry
+            }
+
+            const hasPointGroups = dataset.hasPointGroups();
+            const labeled = axes.dataPointsHaveLabels === true;
+
+            if (hasPointGroups || labeled) {
+                const before = dataset.getStateSnapshot();
+                const beforeContext = hasPointGroups ? _cursorSnapshot() : undefined;
+                _removeGroupedOrLabeled(hitIndex);
+                const after = dataset.getStateSnapshot();
+                const afterContext = hasPointGroups ? _cursorSnapshot() : undefined;
+                _undoManager().insertAction(new wpd.DatasetPointsBatchAction(
+                    dataset, before, after, hasPointGroups ? _refreshGrouped : _refresh,
+                    beforeContext, afterContext));
+            } else {
+                const pixel = dataset.getPixel(hitIndex);
+                const payload = {x: pixel.x, y: pixel.y, metadata: pixel.metadata};
+                dataset.removePixelAtIndex(hitIndex);
+                _undoManager().insertAction(new wpd.DatasetPointRemoveAction(
+                    dataset, hitIndex, payload, _refresh));
+            }
+
+            _refreshDisplay();
+            wpd.graphicsWidget.updateZoomOnEvent(ev);
+            wpd.events.dispatch("wpd.dataset.point.delete", {axes: axes, dataset: dataset, index: hitIndex});
+        };
+
+        const _commitMove = function(ev, imagePos) {
+            if (_moveIndex < 0 || _moveOldPos == null) {
+                return;
+            }
+            const newPos = {x: imagePos.x, y: imagePos.y};
+            if (_moveOldPos.x === newPos.x && _moveOldPos.y === newPos.y) {
+                // never actually moved: no-op, no undo entry
+                return;
+            }
+            // the live drag already applied intermediate positions; pin the final position and
+            // register one move action for the whole drag
+            dataset.setPixelAt(_moveIndex, newPos.x, newPos.y);
+            _undoManager().insertAction(new wpd.DatasetPointMoveAction(
+                dataset, _moveIndex, _moveOldPos, newPos, _refresh));
+            _refreshDisplay();
+            wpd.graphicsWidget.updateZoomOnEvent(ev);
+        };
+
+        const _finishGesture = function(ev, pos, imagePos) {
+            if (!_gestureActive) {
+                return; // already handled (e.g. onMouseUp ran before onDocumentMouseUp)
+            }
+            _gestureActive = false;
+            _suppressNextClick = true;
+
+            switch (_mode) {
+                case 'move':
+                    _commitMove(ev, imagePos);
+                    break;
+                case 'remove':
+                    _commitRemove(ev, imagePos);
+                    break;
+                case 'add':
+                    _commitAdd(ev, imagePos);
+                    break;
+                default:
+                    break; // 'noop' e.g. Shift+click with no nearby point
+            }
+            _mode = 'noop';
+        };
+
+        this.onAttach = function() {
+            document.getElementById('manual-select-button').classList.add('pressed-button');
+            wpd.graphicsWidget.setRepainter(new wpd.DataPointsRepainter(axes, dataset));
+            if (dataset.hasPointGroups()) {
+                wpd.pointGroups.showControls();
+                wpd.pointGroups.refreshControls();
+            }
+        };
+
+        this.onRemove = function() {
+            document.getElementById('manual-select-button').classList.remove('pressed-button');
+            if (dataset.hasPointGroups()) {
+                wpd.pointGroups.hideControls();
+            }
+        };
+
+        this.onMouseDown = function(ev, pos, imagePos) {
+            if (ev.button !== 0) {
+                return; // left button only; middle-mouse pan is handled by the widget
+            }
+            _mods = helpers.captureModifiers(ev);
+            _startPos = pos;
+            _startImagePos = imagePos;
+            _gestureActive = true;
+            _suppressNextClick = false;
+            _hasMoved = false;
+            _moveIndex = -1;
+            _moveOldPos = null;
+
+            if (helpers.isRemoveModifier(_mods)) {
+                _mode = 'remove';
+            } else if (_mods.shiftKey) {
+                const hitIndex = dataset.findNearestPixel(imagePos.x, imagePos.y, helpers.HIT_THRESHOLD);
+                if (hitIndex >= 0) {
+                    _mode = 'move';
+                    _moveIndex = hitIndex;
+                    const p = dataset.getPixel(hitIndex);
+                    _moveOldPos = {x: p.x, y: p.y};
+                } else {
+                    _mode = 'noop'; // Shift+click with no nearby point does nothing
+                }
+            } else {
+                _mode = 'add';
+            }
+        };
+
+        this.onMouseMove = function(ev, pos, imagePos) {
+            if (!_gestureActive || _mode !== 'move' || _moveIndex < 0) {
+                return;
+            }
+            if (helpers.exceedsDragThreshold(_startPos, pos)) {
+                _hasMoved = true;
+            }
+            dataset.setPixelAt(_moveIndex, imagePos.x, imagePos.y);
+            wpd.graphicsWidget.resetData();
+            wpd.graphicsWidget.forceHandlerRepaint();
+            wpd.graphicsWidget.updateZoomOnEvent(ev);
+        };
+
+        this.onMouseUp = function(ev, pos, imagePos) {
+            _finishGesture(ev, pos, imagePos);
+        };
+
+        this.onDocumentMouseUp = function(ev, pos, imagePos) {
+            // completes a drag that releases outside the canvas; the on-canvas onMouseUp runs first
+            // and clears _gestureActive, so this is a no-op for in-canvas releases
+            _finishGesture(ev, pos, imagePos);
+        };
+
+        this.onMouseClick = function(ev, pos, imagePos) {
+            // all placement happens on mouseup; the trailing click is suppressed
+            if (_suppressNextClick) {
+                _suppressNextClick = false;
+            }
+        };
+
+        this.onKeyDown = function(ev) {
+            if (wpd.acquireData.isToolSwitchKey(ev.keyCode)) {
+                wpd.acquireData.switchToolOnKeyPress(String.fromCharCode(ev.keyCode).toLowerCase());
+                return;
+            }
+            if (wpd.keyCodes.isComma(ev.keyCode)) {
+                wpd.pointGroups.previousGroup();
+                return;
+            }
+            if (wpd.keyCodes.isPeriod(ev.keyCode)) {
+                wpd.pointGroups.nextGroup();
+                return;
+            }
+
+            // arrow keys nudge the most recently placed point, one undoable move per keypress
+            const lastPtIndex = dataset.getCount() - 1;
+            if (lastPtIndex < 0) {
+                return;
+            }
+            const lastPt = dataset.getPixel(lastPtIndex);
+            const stepSize = 0.5 / wpd.graphicsWidget.getZoomRatio();
+            const currentRotation = wpd.graphicsWidget.getRotation();
+            let {
+                x,
+                y
+            } = wpd.graphicsWidget.getRotatedCoordinates(0, currentRotation, lastPt.x, lastPt.y);
+
+            if (wpd.keyCodes.isUp(ev.keyCode)) {
+                y = y - stepSize;
+            } else if (wpd.keyCodes.isDown(ev.keyCode)) {
+                y = y + stepSize;
+            } else if (wpd.keyCodes.isLeft(ev.keyCode)) {
+                x = x - stepSize;
+            } else if (wpd.keyCodes.isRight(ev.keyCode)) {
+                x = x + stepSize;
+            } else {
+                return;
+            }
+
+            const oldPos = {x: lastPt.x, y: lastPt.y};
+            ({
+                x,
+                y
+            } = wpd.graphicsWidget.getRotatedCoordinates(currentRotation, 0, x, y));
+
+            dataset.setPixelAt(lastPtIndex, x, y);
+            _undoManager().insertAction(new wpd.DatasetPointMoveAction(
+                dataset, lastPtIndex, oldPos, {x: x, y: y}, _refresh));
+            wpd.graphicsWidget.resetData();
+            wpd.graphicsWidget.forceHandlerRepaint();
+            wpd.graphicsWidget.updateZoomToImagePosn(lastPt.x, lastPt.y);
+            ev.preventDefault();
+        };
+    };
+    return Tool;
+})();

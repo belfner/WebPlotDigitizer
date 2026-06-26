@@ -25,9 +25,9 @@ var wpd = wpd || {};
 // (loaded earlier). The owning tool mutates the model first, then inserts an already-applied
 // action; undo() reverses it and execute() re-applies it on redo.
 
-function _wpdRunCallback(callback) {
+function _wpdRunCallback(callback, context) {
     if (typeof callback === "function") {
-        callback();
+        callback(context);
     }
 }
 
@@ -114,23 +114,28 @@ wpd.DatasetPointRemoveAction = class extends wpd.ReversibleAction {
 // Full before/after snapshot action for algorithm runs, clear-all, and any single op with complex
 // point-group side effects that lightweight inverse helpers cannot safely reverse.
 wpd.DatasetPointsBatchAction = class extends wpd.ReversibleAction {
-    constructor(dataset, beforeSnapshot, afterSnapshot, afterRestore) {
+    // beforeContext/afterContext carry controller-side state that lives outside the dataset (e.g.
+    // the point-group cursor). The matching context is passed to afterRestore so it can restore the
+    // cursor for the direction being applied. Algorithm/clear-all callers omit them.
+    constructor(dataset, beforeSnapshot, afterSnapshot, afterRestore, beforeContext, afterContext) {
         super();
         this._dataset = dataset;
         this._beforeSnapshot = beforeSnapshot;
         this._afterSnapshot = afterSnapshot;
         this._afterRestore = afterRestore;
+        this._beforeContext = beforeContext;
+        this._afterContext = afterContext;
     }
 
     execute() {
         // redo: restore the post-operation state
         this._dataset.restoreStateSnapshot(this._afterSnapshot);
-        _wpdRunCallback(this._afterRestore);
+        _wpdRunCallback(this._afterRestore, this._afterContext);
     }
 
     undo() {
         this._dataset.restoreStateSnapshot(this._beforeSnapshot);
-        _wpdRunCallback(this._afterRestore);
+        _wpdRunCallback(this._afterRestore, this._beforeContext);
     }
 };
 

@@ -61,7 +61,7 @@ td {
 }
 
 #graphicsContainer {
-    overflow: auto;
+    overflow: hidden;
     display: inline-block;
 }
 

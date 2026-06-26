@@ -49,6 +49,11 @@ wpd.ColorFilterRepainter = (function() {
         this.painterName = 'colorFilterRepainter';
 
         this.onRedraw = function() {
+            if (wpd.graphicsWidget.isViewportRender()) {
+                // pan/zoom: blit the cached filter layer, do not recompute it
+                wpd.graphicsWidget.copyImageDataLayerToScreen();
+                return;
+            }
             let ds = wpd.tree.getActiveDataset();
             let autoDetector = wpd.appData.getPlotData().getAutoDetectionDataForDataset(ds);
             wpd.colorSelectionWidget.paintFilteredColor(autoDetector.binaryData, autoDetector.mask);

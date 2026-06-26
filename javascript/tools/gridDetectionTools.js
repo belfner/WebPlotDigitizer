@@ -24,6 +24,11 @@ wpd.GridColorFilterRepainter = (function() {
         this.painterName = 'gridColorFilterRepainter';
 
         this.onRedraw = function() {
+            if (wpd.graphicsWidget.isViewportRender()) {
+                // pan/zoom: blit the cached filter layer, do not recompute it
+                wpd.graphicsWidget.copyImageDataLayerToScreen();
+                return;
+            }
             var autoDetector = wpd.appData.getPlotData().getGridDetectionData();
             wpd.colorSelectionWidget.paintFilteredColor(autoDetector.binaryData,
                 autoDetector.gridMask.pixels);
@@ -166,15 +171,28 @@ wpd.GridMaskPainter = (function() {
                 wpd.graphicsWidget.copyImageDataLayerToScreen();
             };
 
+        this.preventGrab = false;
+
         this.painterName = 'gridMaskPainter';
 
         this.onRedraw = function() {
-            wpd.gridDetection.grabMask();
+            if (wpd.graphicsWidget.isViewportRender()) {
+                // pan/zoom: blit the cached mask layer, do not re-grab or rebuild
+                wpd.graphicsWidget.copyImageDataLayerToScreen();
+                return;
+            }
+            if (!this.preventGrab) {
+                wpd.gridDetection.grabMask();
+            }
             painter();
         };
 
         this.onAttach = function() {
+            // resetData() clears oriData and triggers onRedraw; prevent the grab
+            // from reading the just-cleared layer and wiping the grid mask set
+            this.preventGrab = true;
             wpd.graphicsWidget.resetData();
+            this.preventGrab = false;
             painter();
         };
     };

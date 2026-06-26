@@ -42,6 +42,7 @@ wpd.graphicsWidget = (function() {
     let $tempImageCanvas = null;
 
     let $canvasDiv = null;
+    let $graphicsContainer = null; // scrollable viewport that holds canvasDiv
 
     let mainCtx = null;
     let dataCtx = null;
@@ -62,12 +63,44 @@ wpd.graphicsWidget = (function() {
     let originalImageData = null;
     let zoomRatio = 1.0;
     let extendedCrosshair = false;
-    let hoverTimer = null;
     let activeTool = null;
     let repaintHandler = null;
     let isCanvasInFocus = false;
     let rotation = 0;
     let dpRatio = 1;
+
+    // Pan offset: display-image px (post-rotation) at the viewport's top-left
+    // corner. The viewport renders a scaled window of the source starting here.
+    let panX = 0;
+    let panY = 0;
+
+    // True while render() repaints for a pure view change (pan/zoom/resize). In
+    // this mode handlers repaint on-screen layers only and leave the
+    // image-resolution oriData layer (export/mask cache) untouched, so view
+    // changes neither re-accumulate translucent strokes nor rebuild masks.
+    let viewportRender = false;
+
+    // Checkerboard fill shown in viewport margins that fall outside the image.
+    let bgPattern = null;
+
+    // Pan / resize re-renders are coalesced into one per animation frame.
+    let renderFrameId = null;
+
+    const WHEEL_ZOOM_STEP = 1.2; // zoom multiplier per wheel notch
+    const MAX_ZOOM_RATIO = 8; // upper bound on screen px per image px (tune as needed)
+
+    // Wheel zoom is coalesced into a single update per animation frame.
+    let pendingZoomFactor = 1;
+    let pendingZoomCursor = null;
+    let zoomFrameId = null;
+
+    // Middle-mouse drag panning state.
+    let isPanning = false;
+    let panStart = null;
+
+    // Magnifier hover update is throttled to one per animation frame.
+    let pendingHoverEvent = null;
+    let hoverFrameId = null;
 
     function posn(ev) { // get screen pixel from event
         let mainCanvasPosition = $mainCanvas.getBoundingClientRect();
@@ -77,63 +110,66 @@ wpd.graphicsWidget = (function() {
         };
     }
 
-    // screen px -> image px
-    function screenToImagePx(screenX, screenY) {
-        const imageX = dpRatio * screenX / zoomRatio;
-        const imageY = dpRatio * screenY / zoomRatio;
-
-        if (rotation === 0) {
-            // this function is often called frequently
-            // do not do extra work if canvases have not been rotated
-            return {
-                x: imageX,
-                y: imageY
-            };
-        } else {
-            // rotate given x and y after dividing by zoom ratio
-            return getRotatedCoordinates(rotation, 0, imageX, imageY);
-        }
+    // Display-image dimensions (image px), accounting for 90/270 rotation swap.
+    function getDisplayDims() {
+        return (rotation % 180 === 0) ?
+            { w: originalWidth, h: originalHeight } :
+            { w: originalHeight, h: originalWidth };
     }
 
-    function imageToScreenPx(imageX, imageY) {
-        if (rotation === 0) {
-            return {
-                x: imageX * zoomRatio / dpRatio,
-                y: imageY * zoomRatio / dpRatio
-            }
-        } else {
-            const coords = getRotatedCoordinates(0, rotation, imageX, imageY);
-            return {
-                x: coords.x * zoomRatio / dpRatio,
-                y: coords.y * zoomRatio / dpRatio
-            }
-        }
-    }
-
-    // screen px -> canvas px
-    function screenToCanvasPx(screenX, screenY) {
-        if (rotation === 0) {
-            return {
-                x: screenX * dpRatio,
-                y: screenY * dpRatio
-            };
-        } else {
-            // divide by zoomRatio to end up into image scale. Then rotate to get into canvas orientation
-            let coords = getRotatedCoordinates(rotation, 0, dpRatio * screenX / zoomRatio, dpRatio * screenY / zoomRatio);
-
-            // scale with zoom ratio to get to canvas scale
-            return {
-                x: coords.x * zoomRatio,
-                y: coords.y * zoomRatio,
-            };
-        }
-    }
-
-    // image px -> canvas px
-    function imageToCanvasPx(imageX, imageY) {
+    // Viewport size in device px (the backing-store resolution of each canvas).
+    function getViewportDeviceSize() {
+        const vp = wpd.layoutManager.getGraphicsViewportSize();
         return {
-            x: imageX * zoomRatio,
-            y: imageY * zoomRatio
+            w: Math.round(vp.width * dpRatio),
+            h: Math.round(vp.height * dpRatio)
+        };
+    }
+
+    // original-image px -> display-image px (post-rotation)
+    function imageToDisplayPx(imageX, imageY) {
+        return (rotation === 0) ? { x: imageX, y: imageY } :
+            getRotatedCoordinates(0, rotation, imageX, imageY);
+    }
+
+    // display-image px -> original-image px
+    function displayToImagePx(displayX, displayY) {
+        return (rotation === 0) ? { x: displayX, y: displayY } :
+            getRotatedCoordinates(rotation, 0, displayX, displayY);
+    }
+
+    // screen px (CSS, relative to viewport top-left) -> image px
+    function screenToImagePx(screenX, screenY) {
+        const displayX = panX + screenX * dpRatio / zoomRatio;
+        const displayY = panY + screenY * dpRatio / zoomRatio;
+        return displayToImagePx(displayX, displayY);
+    }
+
+    // image px -> canvas px (device px on the viewport-sized canvas)
+    function imageToCanvasPx(imageX, imageY) {
+        const d = imageToDisplayPx(imageX, imageY);
+        return {
+            x: (d.x - panX) * zoomRatio,
+            y: (d.y - panY) * zoomRatio
+        };
+    }
+
+    // image px -> screen px (CSS, relative to viewport top-left)
+    function imageToScreenPx(imageX, imageY) {
+        const c = imageToCanvasPx(imageX, imageY);
+        return {
+            x: c.x / dpRatio,
+            y: c.y / dpRatio
+        };
+    }
+
+    // screen px (CSS, relative to viewport top-left) -> canvas px (device px).
+    // The displayed view already carries pan and rotation, so this is a pure
+    // device-pixel scaling.
+    function screenToCanvasPx(screenX, screenY) {
+        return {
+            x: screenX * dpRatio,
+            y: screenY * dpRatio
         };
     }
 
@@ -143,6 +179,16 @@ wpd.graphicsWidget = (function() {
 
     function screenLength(imageLength) {
         return imageLength * zoomRatio / dpRatio;
+    }
+
+    // Matrix mapping original-image px -> viewport device px. Drives the image
+    // blit and the image-resolution data/mask blit.
+    function imageToDeviceMatrix() {
+        const m = new DOMMatrix();
+        m.scaleSelf(zoomRatio);
+        m.translateSelf(-panX, -panY);
+        m.multiplySelf(getRotationMatrix(rotation, originalWidth, originalHeight));
+        return m;
     }
 
     function getDisplaySize() {
@@ -171,47 +217,29 @@ wpd.graphicsWidget = (function() {
         };
     }
 
-    function resize(cwidth, cheight) {
-        let cssWidth = parseInt(cwidth / dpRatio, 10);
-        let cssHeight = parseInt(cheight / dpRatio, 10);
-
-        cwidth = parseInt(cwidth, 10);
-        cheight = parseInt(cheight, 10);
-
-        // $canvasDiv.style.width = cwidth + 'px';
-        // $canvasDiv.style.height = cheight + 'px';
-
-        $canvasDiv.style.width = cssWidth + 'px';
-        $canvasDiv.style.height = cssHeight + 'px';
-
-        $mainCanvas.width = cwidth;
-        $dataCanvas.width = cwidth;
-        $drawCanvas.width = cwidth;
-        $hoverCanvas.width = cwidth;
-        $topCanvas.width = cwidth;
-
-        $mainCanvas.height = cheight;
-        $dataCanvas.height = cheight;
-        $drawCanvas.height = cheight;
-        $hoverCanvas.height = cheight;
-        $topCanvas.height = cheight;
-
-        $mainCanvas.style.width = cssWidth + 'px';
-        $dataCanvas.style.width = cssWidth + 'px';
-        $drawCanvas.style.width = cssWidth + 'px';
-        $hoverCanvas.style.width = cssWidth + 'px';
-        $topCanvas.style.width = cssWidth + 'px';
-
-        $mainCanvas.style.height = cssHeight + 'px';
-        $dataCanvas.style.height = cssHeight + 'px';
-        $drawCanvas.style.height = cssHeight + 'px';
-        $hoverCanvas.style.height = cssHeight + 'px';
-        $topCanvas.style.height = cssHeight + 'px';
-
-        displayAspectRatio = cwidth / (cheight * 1.0);
-
-        width = cwidth;
-        height = cheight;
+    // Size the five display canvases (and the holder div) to the viewport: device
+    // px backing store, CSS px display size. Only touches the DOM when the size
+    // actually changed (assigning canvas.width clears the canvas).
+    function ensureCanvasSize() {
+        const vp = wpd.layoutManager.getGraphicsViewportSize();
+        const cssW = parseInt(vp.width, 10);
+        const cssH = parseInt(vp.height, 10);
+        const devW = Math.round(cssW * dpRatio);
+        const devH = Math.round(cssH * dpRatio);
+        if ($mainCanvas.width === devW && $mainCanvas.height === devH) {
+            return;
+        }
+        const layers = [$mainCanvas, $dataCanvas, $drawCanvas, $hoverCanvas, $topCanvas];
+        for (const layer of layers) {
+            layer.width = devW;
+            layer.height = devH;
+            layer.style.width = cssW + 'px';
+            layer.style.height = cssH + 'px';
+        }
+        $canvasDiv.style.width = cssW + 'px';
+        $canvasDiv.style.height = cssH + 'px';
+        width = devW;
+        height = devH;
     }
 
     function resetAllLayers() {
@@ -227,20 +255,77 @@ wpd.graphicsWidget = (function() {
         $oriDataCanvas.width = $oriDataCanvas.width;
     }
 
-    function drawImage(dx, dy) {
-        if (originalImageData == null)
-            return;
-
-        mainCtx.fillStyle = "rgb(255, 255, 255)";
-        mainCtx.fillRect(0, 0, dx, dy);
-        mainCtx.drawImage($oriImageCanvas, 0, 0, dx, dy);
-
-        if (repaintHandler != null && repaintHandler.onRedraw != undefined) {
-            repaintHandler.onRedraw();
+    // Lazily build the checkerboard pattern used to fill viewport margins that
+    // fall outside the image (visible near contain zoom on the non-limiting axis).
+    function getBackgroundPattern() {
+        if (bgPattern !== null) {
+            return bgPattern;
         }
+        const tile = document.createElement('canvas');
+        const t = 12;
+        tile.width = 2 * t;
+        tile.height = 2 * t;
+        const tctx = tile.getContext('2d');
+        tctx.fillStyle = "#d6d6d6";
+        tctx.fillRect(0, 0, 2 * t, 2 * t);
+        tctx.fillStyle = "#bfbfbf";
+        tctx.fillRect(0, 0, t, t);
+        tctx.fillRect(t, t, t, t);
+        bgPattern = mainCtx.createPattern(tile, 'repeat');
+        return bgPattern;
+    }
 
-        if (activeTool != null && activeTool.onRedraw != undefined) {
-            activeTool.onRedraw();
+    // Repaint the image layer (cropped + scaled to the viewport) and the overlay
+    // layers. Cost is O(viewport), independent of zoom level.
+    function render() {
+        if (originalImageData == null) {
+            return;
+        }
+        ensureCanvasSize();
+
+        // image layer: textured background, then the scaled/panned/rotated source
+        const matrix = imageToDeviceMatrix();
+        mainCtx.setTransform(1, 0, 0, 1, 0, 0);
+        mainCtx.fillStyle = getBackgroundPattern();
+        mainCtx.fillRect(0, 0, width, height);
+        mainCtx.setTransform(matrix);
+        mainCtx.drawImage($oriImageCanvas, 0, 0);
+        mainCtx.setTransform(1, 0, 0, 1, 0, 0);
+
+        // overlay layers: clear only the on-screen layers; the image-resolution
+        // oriData layer persists as the export/mask cache. In viewportRender mode
+        // the handlers redraw on-screen vectors only and blit the cached oriData
+        // layer, so oriData is left untouched (no re-accumulation, masks are not
+        // rebuilt, and the repaint stays O(viewport)).
+        clearLayer($dataCanvas, dataCtx);
+        clearLayer($drawCanvas, drawCtx);
+        clearLayer($hoverCanvas, hoverCtx);
+        clearLayer($topCanvas, topCtx);
+        viewportRender = true;
+        try {
+            if (repaintHandler != null && repaintHandler.onRedraw != undefined) {
+                repaintHandler.onRedraw();
+            }
+            if (activeTool != null && activeTool.onRedraw != undefined) {
+                activeTool.onRedraw();
+            }
+        } finally {
+            viewportRender = false;
+        }
+    }
+
+    // True while a pan/zoom/resize repaint is in progress (see render()).
+    function isViewportRender() {
+        return viewportRender;
+    }
+
+    // Coalesce pan / resize re-renders to one per animation frame.
+    function scheduleRender() {
+        if (renderFrameId === null) {
+            renderFrameId = requestAnimationFrame(function() {
+                renderFrameId = null;
+                render();
+            });
         }
     }
 
@@ -272,12 +357,13 @@ wpd.graphicsWidget = (function() {
         repaintHandler = null;
     }
 
+    // Show the image-resolution data/mask layer (points, color filter, detection
+    // mask) by cropping + scaling it into the viewport, matching the image blit.
     function copyImageDataLayerToScreen() {
-        if (rotation % 180 === 0) {
-            dataCtx.drawImage($oriDataCanvas, 0, 0, width, height);
-        } else {
-            dataCtx.drawImage($oriDataCanvas, 0, 0, height, width);
-        }
+        const matrix = imageToDeviceMatrix();
+        dataCtx.setTransform(matrix);
+        dataCtx.drawImage($oriDataCanvas, 0, 0);
+        dataCtx.setTransform(1, 0, 0, 1, 0, 0);
     }
 
     function getRotationMatrix(degrees, dx, dy) {
@@ -329,45 +415,31 @@ wpd.graphicsWidget = (function() {
         rotateAndResize(-90);
     }
 
-    function rotateAndResize(deltaDegrees = 0, newWidth = null, newHeight = null) {
+    function rotateAndResize(deltaDegrees = 0) {
         // do nothing if delta degrees value is not a multiple of 90
         if (Math.abs(deltaDegrees) % 90 !== 0) {
             return;
         }
 
-        // use provided width and height, if available
-        // otherwise, use current zoomed width and height values
-        const displayWidth = newWidth ?? (originalWidth * zoomRatio);
-        const displayHeight = newHeight ?? (originalHeight * zoomRatio);
+        // delta 0 means re-render the current view (e.g. after a page switch)
+        if (deltaDegrees === 0) {
+            zoomRatio = Math.max(zoomRatio, getContainZoomRatio());
+            clampPan();
+            render();
+            return;
+        }
 
         // add delta degrees to rotation
         // if rotation is 0 start at 360
         // modulo to make sure it is 0 <= d < 360
         rotation = ((rotation || 360) + deltaDegrees) % 360;
 
-        // determine if it is necessary to swap canvas width and height
-        const dimensions = rotation % 180 === 0 ? [displayWidth, displayHeight] : [displayHeight, displayWidth];
+        // the displayed dimensions swap on 90/270, so re-fit the whole image
+        zoomFit();
 
-        // setting size clears canvases, update the size of the canvases before transforming
-        resize(...dimensions);
-
-        // get transformation matrix and set transform on canvas context
-        const matrix = getRotationMatrix(rotation, displayWidth, displayHeight);
-        mainCtx.setTransform(matrix);
-        dataCtx.setTransform(matrix);
-        drawCtx.setTransform(matrix);
-        hoverCtx.setTransform(matrix);
-        topCtx.setTransform(matrix);
-
-        // draw the image with the rotation independent dimensions
-        drawImage(displayWidth, displayHeight);
-
-        // fire rotation event if image has been rotated
-        if (deltaDegrees !== 0) {
-            wpd.events.dispatch("wpd.image.rotate", {
-                rotation: rotation
-            });
-        }
+        wpd.events.dispatch("wpd.image.rotate", {
+            rotation: rotation
+        });
     }
 
     function getRotation() {
@@ -375,51 +447,125 @@ wpd.graphicsWidget = (function() {
     }
 
     function setRotation(degrees) {
-        rotation = degrees;
+        // normalize undefined/null to 0 so the rotation transform never sees NaN
+        rotation = degrees || 0;
     }
 
-    function zoomIn() {
-        setZoomRatio(zoomRatio * 1.2);
+    // Largest zoom ratio at which the WHOLE image fits in the viewport (contain
+    // fit). Acts as the zoom-out floor: the limiting axis fits exactly, the other
+    // axis shows a textured margin.
+    function getContainZoomRatio() {
+        const vp = getViewportDeviceSize();
+        const dim = getDisplayDims();
+        return Math.min(vp.w / dim.w, vp.h / dim.h);
     }
 
-    function zoomOut() {
-        setZoomRatio(zoomRatio / 1.2);
+    // Clamp the pan offset. On an axis where the image fits within the viewport,
+    // center the image (pan goes negative to inset it, leaving textured margins)
+    // and lock the axis. On an axis where the image overflows, clamp so no empty
+    // edge shows on that axis.
+    function clampPan() {
+        const vp = getViewportDeviceSize();
+        const dim = getDisplayDims();
+        const spanX = dim.w - vp.w / zoomRatio;
+        const spanY = dim.h - vp.h / zoomRatio;
+        panX = (spanX <= 0) ? spanX / 2 : Math.min(Math.max(panX, 0), spanX);
+        panY = (spanY <= 0) ? spanY / 2 : Math.min(Math.max(panY, 0), spanY);
     }
 
-    function zoomFit() {
-        let viewportSize = wpd.layoutManager.getGraphicsViewportSize();
-        viewportSize.width *= dpRatio;
-        viewportSize.height *= dpRatio;
-        let newAspectRatio = viewportSize.width / (viewportSize.height * 1.0);
+    // Wheel zoom centered on the cursor. Events are accumulated and applied once
+    // per animation frame to avoid rebuilding the canvases on every wheel notch.
+    function zoomWheel(ev) {
+        if (originalImageData == null) {
+            return;
+        }
+        ev.preventDefault();
 
-        if (newAspectRatio > aspectRatio) {
-            zoomRatio = viewportSize.height / (originalHeight * 1.0);
-            rotateAndResize(0, viewportSize.height * aspectRatio, viewportSize.height);
-        } else {
-            zoomRatio = viewportSize.width / (originalWidth * 1.0);
-            rotateAndResize(0, viewportSize.width, viewportSize.width / aspectRatio);
+        const rect = $graphicsContainer.getBoundingClientRect();
+        pendingZoomCursor = {
+            x: ev.clientX - rect.left, // cursor offset within viewport (CSS px)
+            y: ev.clientY - rect.top
+        };
+        pendingZoomFactor *= (ev.deltaY < 0 ? WHEEL_ZOOM_STEP : 1 / WHEEL_ZOOM_STEP);
+
+        if (zoomFrameId === null) {
+            zoomFrameId = requestAnimationFrame(applyPendingZoom);
         }
     }
 
-    function zoom100perc() {
-        setZoomRatio(1.0);
+    // Apply the accumulated wheel zoom, keeping the image point under the cursor
+    // fixed. Pan is clamped to keep the image within the viewport (edge align).
+    function applyPendingZoom() {
+        zoomFrameId = null;
+        const factor = pendingZoomFactor;
+        const cursor = pendingZoomCursor;
+        pendingZoomFactor = 1;
+        pendingZoomCursor = null;
+        if (cursor == null || originalImageData == null) {
+            return;
+        }
+
+        const oldZoom = zoomRatio;
+        const containZoom = getContainZoomRatio();
+        const maxZoom = Math.max(containZoom, MAX_ZOOM_RATIO);
+        const newZoom = Math.max(containZoom, Math.min(oldZoom * factor, maxZoom));
+        if (newZoom === oldZoom) {
+            return;
+        }
+
+        // hold the display point under the cursor fixed across the zoom change
+        const curDevX = cursor.x * dpRatio;
+        const curDevY = cursor.y * dpRatio;
+        panX = (panX + curDevX / oldZoom) - curDevX / newZoom;
+        panY = (panY + curDevY / oldZoom) - curDevY / newZoom;
+        zoomRatio = newZoom;
+        clampPan();
+        render();
+    }
+
+    function zoomFit() {
+        // Contain the whole image in the viewport, centered.
+        zoomRatio = getContainZoomRatio();
+        clampPan();
+        render();
     }
 
     function setZoomRatio(zratio) {
-        zoomRatio = zratio;
-        rotateAndResize(0, originalWidth * zoomRatio, originalHeight * zoomRatio);
+        zoomRatio = Math.max(zratio, getContainZoomRatio());
+        clampPan();
+        render();
     }
 
     function getZoomRatio() {
         return zoomRatio;
     }
 
-    function resetData() {
-        $oriDataCanvas.width = $oriDataCanvas.width;
-        $dataCanvas.width = $dataCanvas.width;
+    // Clear a single layer's full backing store without reallocating it (setting
+    // .width reallocates, which is expensive when the canvas is large at high
+    // zoom). The existing transform (rotation) is preserved.
+    function clearLayer(canvas, ctx) {
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+    }
 
-        // re-rotate canvases
-        rotateAndResize();
+    function resetData() {
+        // Refresh only the overlay layers. The image layer is unchanged when data
+        // changes, so skip rotateAndResize (which reallocates every canvas and
+        // re-blits the whole image - the dominant cost of placing/moving points).
+        clearLayer($oriDataCanvas, oriDataCtx);
+        clearLayer($dataCanvas, dataCtx);
+        clearLayer($drawCanvas, drawCtx);
+        clearLayer($hoverCanvas, hoverCtx);
+        clearLayer($topCanvas, topCtx);
+
+        if (repaintHandler != null && repaintHandler.onRedraw != undefined) {
+            repaintHandler.onRedraw();
+        }
+        if (activeTool != null && activeTool.onRedraw != undefined) {
+            activeTool.onRedraw();
+        }
     }
 
     function clearData() {
@@ -428,9 +574,7 @@ wpd.graphicsWidget = (function() {
     }
 
     function resetHover() {
-        // canvas could be rotated, so get max screenX and screenY
-        let canvasDims = imageToCanvasPx(originalWidth, originalHeight);
-        hoverCtx.clearRect(0, 0, canvasDims.x, canvasDims.y);
+        hoverCtx.clearRect(0, 0, $hoverCanvas.width, $hoverCanvas.height);
     }
 
     function toggleExtendedCrosshair(ev) { // called when backslash is hit
@@ -560,23 +704,11 @@ wpd.graphicsWidget = (function() {
             iymax = originalHeight;
             zymax = zymax - zratio * (originalHeight - (iy0 + ih));
         }
+        // Magnifier shows the raw source image only. The data/overlay layer is
+        // intentionally not read here: reading the just-modified data canvas back
+        // on every point placement was a major source of placement lag.
         const idata = oriImageCtx.getImageData(parseInt(ixmin, 10), parseInt(iymin, 10),
             parseInt(ixmax - ixmin, 10), parseInt(iymax - iymin, 10));
-
-        const ddata = oriDataCtx.getImageData(parseInt(ixmin, 10), parseInt(iymin, 10),
-            parseInt(ixmax - ixmin, 10), parseInt(iymax - iymin, 10));
-
-        for (let index = 0; index < ddata.data.length; index += 4) {
-            if (ddata.data[index] != 0 || ddata.data[index + 1] != 0 ||
-                ddata.data[index + 2] != 0) {
-                const alpha = ddata.data[index + 3] / 255;
-                idata.data[index] = (1 - alpha) * idata.data[index] + alpha * ddata.data[index];
-                idata.data[index + 1] =
-                    (1 - alpha) * idata.data[index + 1] + alpha * ddata.data[index + 1];
-                idata.data[index + 2] =
-                    (1 - alpha) * idata.data[index + 2] + alpha * ddata.data[index + 2];
-            }
-        }
 
         // Make this accurate to subpixel level
         const xcorr = zratio * (parseInt(ixmin, 10) - ixmin);
@@ -598,9 +730,23 @@ wpd.graphicsWidget = (function() {
         wpd.zoomView.setCoords(x, y);
     }
 
+    // Throttle the (expensive) magnifier update to one per animation frame, using
+    // the most recent mouse position. Skipped entirely while panning.
     function hoverOverCanvasHandler(ev) {
-        clearTimeout(hoverTimer);
-        hoverTimer = setTimeout(hoverOverCanvas(ev), 10);
+        if (isPanning) {
+            return;
+        }
+        pendingHoverEvent = ev;
+        if (hoverFrameId === null) {
+            hoverFrameId = requestAnimationFrame(function() {
+                hoverFrameId = null;
+                const hoverEvent = pendingHoverEvent;
+                pendingHoverEvent = null;
+                if (hoverEvent != null) {
+                    hoverOverCanvas(hoverEvent);
+                }
+            });
+        }
     }
 
     function dropHandler(ev) {
@@ -654,11 +800,35 @@ wpd.graphicsWidget = (function() {
         topCtx = $topCanvas.getContext('2d');
         drawCtx = $drawCanvas.getContext('2d');
 
-        oriImageCtx = $oriImageCanvas.getContext('2d');
-        oriDataCtx = $oriDataCanvas.getContext('2d');
+        // These offscreen layers are read back via getImageData frequently
+        // (magnifier, color picker, auto-detection); willReadFrequently keeps
+        // those readbacks on a fast CPU-backed path instead of stalling on GPU.
+        oriImageCtx = $oriImageCanvas.getContext('2d', { willReadFrequently: true });
+        oriDataCtx = $oriDataCanvas.getContext('2d', { willReadFrequently: true });
         tempImageCtx = $tempImageCanvas.getContext('2d');
 
         $canvasDiv = document.getElementById('canvasDiv');
+        $graphicsContainer = document.getElementById('graphicsContainer');
+
+        // Wheel zoom centered on the cursor (replaces native scroll panning)
+        $graphicsContainer.addEventListener('wheel', zoomWheel, {
+            passive: false
+        });
+
+        // Re-fit / clamp / repaint when the viewport size actually changes. A
+        // ResizeObserver fires after layoutManager applies its (debounced) height
+        // change, avoiding a stale render against the pre-resize dimensions.
+        if (typeof ResizeObserver !== 'undefined') {
+            const ro = new ResizeObserver(function() {
+                if (originalImageData == null) {
+                    return;
+                }
+                zoomRatio = Math.max(zoomRatio, getContainZoomRatio());
+                clampPan();
+                scheduleRender();
+            });
+            ro.observe($graphicsContainer);
+        }
 
         // Extended crosshair
         document.addEventListener('keydown', function(ev) {
@@ -684,6 +854,7 @@ wpd.graphicsWidget = (function() {
         $topCanvas.addEventListener("mouseup", onMouseUp, false);
         $topCanvas.addEventListener("mousedown", onMouseDown, false);
         $topCanvas.addEventListener("mouseout", onMouseOut, true);
+        document.addEventListener("mousemove", onDocumentMouseMove, false);
         document.addEventListener("mouseup", onDocumentMouseUp, false);
 
         document.addEventListener("mousedown", function(ev) {
@@ -803,11 +974,26 @@ wpd.graphicsWidget = (function() {
     }
 
     function onMouseMove(ev) {
+        if (isPanning) {
+            return;
+        }
         if (activeTool != null && activeTool.onMouseMove != undefined) {
             const pos = posn(ev);
             const imagePos = screenToImagePx(pos.x, pos.y);
             activeTool.onMouseMove(ev, pos, imagePos);
         }
+    }
+
+    // Pan the viewport while the middle mouse button is held. Scroll offsets are
+    // clamped by the browser, so the image cannot be panned past its edges.
+    function onDocumentMouseMove(ev) {
+        if (!isPanning) {
+            return;
+        }
+        panX = panStart.panX - (ev.clientX - panStart.x) * dpRatio / zoomRatio;
+        panY = panStart.panY - (ev.clientY - panStart.y) * dpRatio / zoomRatio;
+        clampPan();
+        scheduleRender();
     }
 
     function onMouseClick(ev) {
@@ -819,6 +1005,12 @@ wpd.graphicsWidget = (function() {
     }
 
     function onDocumentMouseUp(ev) {
+        if (isPanning && ev.button === 1) {
+            isPanning = false;
+            panStart = null;
+            $graphicsContainer.style.cursor = '';
+            return;
+        }
         if (activeTool != null && activeTool.onDocumentMouseUp != undefined) {
             const pos = posn(ev);
             const imagePos = screenToImagePx(pos.x, pos.y);
@@ -835,6 +1027,18 @@ wpd.graphicsWidget = (function() {
     }
 
     function onMouseDown(ev) {
+        if (ev.button === 1) { // middle mouse button starts panning
+            ev.preventDefault();
+            isPanning = true;
+            panStart = {
+                x: ev.clientX,
+                y: ev.clientY,
+                panX: panX,
+                panY: panY
+            };
+            $graphicsContainer.style.cursor = 'grabbing';
+            return;
+        }
         if (activeTool != null && activeTool.onMouseDown != undefined) {
             const pos = posn(ev);
             const imagePos = screenToImagePx(pos.x, pos.y);
@@ -911,10 +1115,7 @@ wpd.graphicsWidget = (function() {
     }
 
     return {
-        zoomIn: zoomIn,
-        zoomOut: zoomOut,
         zoomFit: zoomFit,
-        zoom100perc: zoom100perc,
         toggleExtendedCrosshairBtn: toggleExtendedCrosshairBtn,
         setZoomRatio: setZoomRatio,
         getZoomRatio: getZoomRatio,
@@ -933,6 +1134,7 @@ wpd.graphicsWidget = (function() {
         removeTool: removeTool,
 
         getAllContexts: getAllContexts,
+        isViewportRender: isViewportRender,
         resetData: resetData,
         clearData: clearData,
         resetHover: resetHover,

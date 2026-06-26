@@ -28,6 +28,9 @@ wpd.graphicsHelper = (function() {
         const canvasPx = wpd.graphicsWidget.imageToCanvasPx(imagePx.x, imagePx.y);
         const ctx = wpd.graphicsWidget.getAllContexts();
         const dpr = window.devicePixelRatio;
+        // During a pan/zoom repaint the image-resolution export layer is left
+        // untouched (it already holds the committed graphics), so skip its draws.
+        const skipOri = wpd.graphicsWidget.isViewportRender();
         let labelWidth = 1;
         let imageHeight = wpd.graphicsWidget.getImageSize().height;
 
@@ -49,14 +52,14 @@ wpd.graphicsHelper = (function() {
                     ctx.dataCtx.fillRect(canvasPx.x - 13 * dpr, canvasPx.y - 24 * dpr, labelWidth + 5 * dpr, 35 * dpr);
                     ctx.dataCtx.fillStyle = fillStyle;
                     ctx.dataCtx.fillText(label, canvasPx.x - 10 * dpr, canvasPx.y - 7 * dpr);
-                    ctx.oriDataCtx.fillText(label, imagePx.x - 10, imagePx.y - 7);
+                    if (!skipOri) ctx.oriDataCtx.fillText(label, imagePx.x - 10, imagePx.y - 7);
                     break;
                 case "E":
                 case "e":
                     ctx.dataCtx.fillRect(canvasPx.x - 7 * dpr, canvasPx.y - 16 * dpr, labelWidth + 17 * dpr, 26 * dpr);
                     ctx.dataCtx.fillStyle = fillStyle;
                     ctx.dataCtx.fillText(label, canvasPx.x + 7 * dpr, canvasPx.y + 5 * dpr);
-                    ctx.oriDataCtx.fillText(label, imagePx.x + 7, imagePx.y + 5);
+                    if (!skipOri) ctx.oriDataCtx.fillText(label, imagePx.x + 7, imagePx.y + 5);
                     break;
                 case "W":
                 case "w":
@@ -64,13 +67,13 @@ wpd.graphicsHelper = (function() {
                         26 * dpr);
                     ctx.dataCtx.fillStyle = fillStyle;
                     ctx.dataCtx.fillText(label, canvasPx.x - labelWidth - 7 * dpr, canvasPx.y + 5 * dpr);
-                    ctx.oriDataCtx.fillText(label, imagePx.x - labelWidth - 7, imagePx.y + 5);
+                    if (!skipOri) ctx.oriDataCtx.fillText(label, imagePx.x - labelWidth - 7, imagePx.y + 5);
                     break;
                 default:
                     ctx.dataCtx.fillRect(canvasPx.x - 13 * dpr, canvasPx.y - 8 * dpr, labelWidth + 5 * dpr, 35 * dpr);
                     ctx.dataCtx.fillStyle = fillStyle;
                     ctx.dataCtx.fillText(label, canvasPx.x - 10 * dpr, canvasPx.y + 18 * dpr);
-                    ctx.oriDataCtx.fillText(label, imagePx.x - 10, imagePx.y + 18);
+                    if (!skipOri) ctx.oriDataCtx.fillText(label, imagePx.x - 10, imagePx.y + 18);
             }
         }
 
@@ -83,13 +86,15 @@ wpd.graphicsHelper = (function() {
         ctx.dataCtx.stroke();
 
         // Original Image Data Canvas Layer
-        ctx.oriDataCtx.beginPath();
-        ctx.oriDataCtx.fillStyle = fillStyle;
-        ctx.oriDataCtx.strokeStyle = "rgb(255, 255, 255)";
-        ctx.oriDataCtx.arc(imagePx.x, imagePx.y, 3, 0, 2.0 * Math.PI,
-            true);
-        ctx.oriDataCtx.fill();
-        ctx.oriDataCtx.stroke();
+        if (!skipOri) {
+            ctx.oriDataCtx.beginPath();
+            ctx.oriDataCtx.fillStyle = fillStyle;
+            ctx.oriDataCtx.strokeStyle = "rgb(255, 255, 255)";
+            ctx.oriDataCtx.arc(imagePx.x, imagePx.y, 3, 0, 2.0 * Math.PI,
+                true);
+            ctx.oriDataCtx.fill();
+            ctx.oriDataCtx.stroke();
+        }
     }
 
     function drawCircle(circleInfo, strokeStyle) {
@@ -104,11 +109,13 @@ wpd.graphicsHelper = (function() {
         ctx.dataCtx.arc(canvasPx.x, canvasPx.y, canvasRadius, 0, 2.0 * Math.PI, false);
         ctx.dataCtx.stroke();
 
-        ctx.oriDataCtx.beginPath();
-        ctx.oriDataCtx.strokeStyle = strokeStyle;
-        ctx.oriDataCtx.lineWidth = 2;
-        ctx.oriDataCtx.arc(circleInfo.x0, circleInfo.y0, circleInfo.radius, 0, 2.0 * Math.PI, false);
-        ctx.oriDataCtx.stroke();
+        if (!wpd.graphicsWidget.isViewportRender()) {
+            ctx.oriDataCtx.beginPath();
+            ctx.oriDataCtx.strokeStyle = strokeStyle;
+            ctx.oriDataCtx.lineWidth = 2;
+            ctx.oriDataCtx.arc(circleInfo.x0, circleInfo.y0, circleInfo.radius, 0, 2.0 * Math.PI, false);
+            ctx.oriDataCtx.stroke();
+        }
     }
 
     function drawBox(bbox, strokeStyle) {
@@ -121,8 +128,10 @@ wpd.graphicsHelper = (function() {
         ctx.dataCtx.lineWidth = dpr;
         ctx.dataCtx.strokeRect(canvasPx0.x, canvasPx0.y, canvasPx1.x - canvasPx0.x, canvasPx1.y - canvasPx0.y);
 
-        ctx.oriDataCtx.strokeStyle = strokeStyle;
-        ctx.oriDataCtx.strokeRect(bbox.xmin, bbox.ymin, bbox.xmax - bbox.xmin, bbox.ymax - bbox.ymin);
+        if (!wpd.graphicsWidget.isViewportRender()) {
+            ctx.oriDataCtx.strokeStyle = strokeStyle;
+            ctx.oriDataCtx.strokeRect(bbox.xmin, bbox.ymin, bbox.xmax - bbox.xmin, bbox.ymax - bbox.ymin);
+        }
     }
 
     function drawLine(p1, p2, strokeStyle) {
@@ -138,12 +147,14 @@ wpd.graphicsHelper = (function() {
         ctx.dataCtx.lineTo(canvasP2.x, canvasP2.y);
         ctx.dataCtx.stroke();
 
-        ctx.oriDataCtx.beginPath();
-        ctx.oriDataCtx.strokeStyle = strokeStyle;
-        ctx.oriDataCtx.lineWidth = 2;
-        ctx.oriDataCtx.moveTo(p1.x, p1.y);
-        ctx.oriDataCtx.lineTo(p2.x, p2.y);
-        ctx.oriDataCtx.stroke();
+        if (!wpd.graphicsWidget.isViewportRender()) {
+            ctx.oriDataCtx.beginPath();
+            ctx.oriDataCtx.strokeStyle = strokeStyle;
+            ctx.oriDataCtx.lineWidth = 2;
+            ctx.oriDataCtx.moveTo(p1.x, p1.y);
+            ctx.oriDataCtx.lineTo(p2.x, p2.y);
+            ctx.oriDataCtx.stroke();
+        }
     }
 
     return {

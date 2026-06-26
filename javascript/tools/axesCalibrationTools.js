@@ -148,8 +148,9 @@ wpd.AlignmentCornersRepainter = class {
     }
 
     onForcedRedraw() {
+        // resetData() already invokes the registered repaintHandler.onRedraw()
+        // (this repainter), so a single call repaints axes and points once.
         wpd.graphicsWidget.resetData();
-        this.onRedraw();
     }
 
     onRedraw() {
@@ -254,8 +255,9 @@ wpd.CircularChartRecorderAlignmentRepainter = class {
     }
 
     onForcedRedraw() {
+        // resetData() already invokes the registered repaintHandler.onRedraw()
+        // (this repainter), so a single call repaints the points once.
         wpd.graphicsWidget.resetData();
-        this.onRedraw();
     }
 
     onRedraw() {

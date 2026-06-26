@@ -284,11 +284,13 @@ wpd.MeasurementRepainter = (function() {
                 ctx.dataCtx.lineTo(sx1, sy1);
                 ctx.dataCtx.stroke();
 
-                ctx.oriDataCtx.beginPath();
-                ctx.oriDataCtx.strokeStyle = "rgb(0,0,10)";
-                ctx.oriDataCtx.moveTo(ix0, iy0);
-                ctx.oriDataCtx.lineTo(ix1, iy1);
-                ctx.oriDataCtx.stroke();
+                if (!wpd.graphicsWidget.isViewportRender()) {
+                    ctx.oriDataCtx.beginPath();
+                    ctx.oriDataCtx.strokeStyle = "rgb(0,0,10)";
+                    ctx.oriDataCtx.moveTo(ix0, iy0);
+                    ctx.oriDataCtx.lineTo(ix1, iy1);
+                    ctx.oriDataCtx.stroke();
+                }
             },
 
             drawPoint =
@@ -302,27 +304,34 @@ wpd.MeasurementRepainter = (function() {
                 ctx.dataCtx.arc(sx, sy, 3 * dpr, 0, 2.0 * Math.PI, true);
                 ctx.dataCtx.fill();
 
-                ctx.oriDataCtx.beginPath();
-                if (isSelected) {
-                    ctx.oriDataCtx.fillStyle = "rgb(0,200,0)";
-                } else {
-                    ctx.oriDataCtx.fillStyle = "rgb(200,0,0)";
+                if (!wpd.graphicsWidget.isViewportRender()) {
+                    ctx.oriDataCtx.beginPath();
+                    if (isSelected) {
+                        ctx.oriDataCtx.fillStyle = "rgb(0,200,0)";
+                    } else {
+                        ctx.oriDataCtx.fillStyle = "rgb(200,0,0)";
+                    }
+                    ctx.oriDataCtx.arc(ix, iy, 3, 0, 2.0 * Math.PI, true);
+                    ctx.oriDataCtx.fill();
                 }
-                ctx.oriDataCtx.arc(ix, iy, 3, 0, 2.0 * Math.PI, true);
-                ctx.oriDataCtx.fill();
             },
 
             drawArc =
-            function(sx, sy, ix, iy, theta1, theta2) {
+            function(sx, sy, ix, iy, theta1, theta2, dtheta1, dtheta2) {
+                // The display overlay uses an identity transform with already
+                // rotated point positions, so the on-screen arc sweeps through
+                // display-frame angles; the export layer keeps image-frame angles.
                 ctx.dataCtx.beginPath();
                 ctx.dataCtx.strokeStyle = "rgb(0,0,10)";
-                ctx.dataCtx.arc(sx, sy, 15 * dpr, theta1, theta2, true);
+                ctx.dataCtx.arc(sx, sy, 15 * dpr, dtheta1, dtheta2, true);
                 ctx.dataCtx.stroke();
 
-                ctx.oriDataCtx.beginPath();
-                ctx.oriDataCtx.strokeStyle = "rgb(0,0,10)";
-                ctx.oriDataCtx.arc(ix, iy, 15, theta1, theta2, true);
-                ctx.oriDataCtx.stroke();
+                if (!wpd.graphicsWidget.isViewportRender()) {
+                    ctx.oriDataCtx.beginPath();
+                    ctx.oriDataCtx.strokeStyle = "rgb(0,0,10)";
+                    ctx.oriDataCtx.arc(ix, iy, 15, theta1, theta2, true);
+                    ctx.oriDataCtx.stroke();
+                }
             },
 
             drawLabel =
@@ -341,12 +350,14 @@ wpd.MeasurementRepainter = (function() {
                 ctx.dataCtx.fillStyle = "rgb(200, 0, 0)";
                 ctx.dataCtx.fillText(lab, sx, sy);
 
-                ctx.oriDataCtx.font = "14px sans-serif";
-                labelWidth = ctx.oriDataCtx.measureText(lab).width;
-                ctx.oriDataCtx.fillStyle = "rgba(255, 255, 255, 0.7)";
-                ctx.oriDataCtx.fillRect(ix - 5, iy - 15, labelWidth + 10, 25);
-                ctx.oriDataCtx.fillStyle = "rgb(200, 0, 0)";
-                ctx.oriDataCtx.fillText(lab, ix, iy);
+                if (!wpd.graphicsWidget.isViewportRender()) {
+                    ctx.oriDataCtx.font = "14px sans-serif";
+                    labelWidth = ctx.oriDataCtx.measureText(lab).width;
+                    ctx.oriDataCtx.fillStyle = "rgba(255, 255, 255, 0.7)";
+                    ctx.oriDataCtx.fillRect(ix - 5, iy - 15, labelWidth + 10, 25);
+                    ctx.oriDataCtx.fillStyle = "rgb(200, 0, 0)";
+                    ctx.oriDataCtx.fillText(lab, ix, iy);
+                }
             },
 
             drawDistances =
@@ -424,8 +435,10 @@ wpd.MeasurementRepainter = (function() {
                     drawPoint(spx1.x, spx1.y, x1, y1, isSelected1);
                     drawPoint(spx2.x, spx2.y, x2, y2, isSelected2);
 
-                    // draw angle arc:
-                    drawArc(spx1.x, spx1.y, x1, y1, theta1, theta2);
+                    // draw angle arc (display-frame angles for the on-screen arc):
+                    let dtheta1 = Math.atan2(spx0.y - spx1.y, spx0.x - spx1.x);
+                    let dtheta2 = Math.atan2(spx2.y - spx1.y, spx2.x - spx1.x);
+                    drawArc(spx1.x, spx1.y, x1, y1, theta1, theta2, dtheta1, dtheta2);
 
                     // angle label
                     drawLabel(spx1.x + 10, spx1.y + 15, x1 + 10, y1 + 15, theta);

@@ -189,7 +189,9 @@ wpd.BoundingBoxTool = class {
             ctx.stroke();
         }
 
-        if (this._showCenterPoint) {
+        if (this._showCenterPoint && !wpd.graphicsWidget.isViewportRender()) {
+            // skip during pan/zoom: the image-resolution layer is left untouched
+            // on view-only repaints (the on-screen hotspots above still redraw)
             wpd.graphicsWidget.clearData();
             let oriDataCtx = this._ctx.oriDataCtx;
             let imagePt = {

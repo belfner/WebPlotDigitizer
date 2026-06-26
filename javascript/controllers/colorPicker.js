@@ -140,12 +140,10 @@ wpd.colorSelectionWidget = (function() {
         const imageSize = wpd.graphicsWidget.getImageSize();
         let dataLayer = ctx.oriDataCtx.getImageData(0, 0, imageSize.width, imageSize.height);
 
-        if (maskPixels == null || maskPixels.size === 0) {
-            return;
-        }
-
-        for (let img_index of maskPixels) {
-
+        // Highlight matching pixels yellow and dim the rest. When a mask has been
+        // drawn the preview is limited to it; otherwise it covers the whole image
+        // so the filter still gives visual confirmation for automatic extraction.
+        const colorPixel = function(img_index) {
             if (binaryData.has(img_index)) {
                 dataLayer.data[img_index * 4] = 255;
                 dataLayer.data[img_index * 4 + 1] = 255;
@@ -156,6 +154,17 @@ wpd.colorSelectionWidget = (function() {
                 dataLayer.data[img_index * 4 + 1] = 0;
                 dataLayer.data[img_index * 4 + 2] = 0;
                 dataLayer.data[img_index * 4 + 3] = 120;
+            }
+        };
+
+        if (maskPixels != null && maskPixels.size > 0) {
+            for (let img_index of maskPixels) {
+                colorPixel(img_index);
+            }
+        } else {
+            const pixelCount = imageSize.width * imageSize.height;
+            for (let img_index = 0; img_index < pixelCount; img_index++) {
+                colorPixel(img_index);
             }
         }
 

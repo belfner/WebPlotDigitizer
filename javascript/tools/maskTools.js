@@ -327,6 +327,11 @@ wpd.MaskPainter = (function() {
         this.painterName = 'dataMaskPainter';
 
         this.onRedraw = function() {
+            if (wpd.graphicsWidget.isViewportRender()) {
+                // pan/zoom: blit the cached mask layer, do not re-grab or rebuild
+                wpd.graphicsWidget.copyImageDataLayerToScreen();
+                return;
+            }
             if (!this.preventGrab) {
                 wpd.dataMask.grabMask();
             }

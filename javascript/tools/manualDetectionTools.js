@@ -771,6 +771,9 @@ wpd.DataPointEditTool = (function() {
         let _suppressNextClick = false;
         let _moveIndex = -1;
         let _moveOldPos = null;
+        // image-px offset from the pointer to the grabbed point at grab time, so the drag moves the
+        // point relative to its own location (no jump) instead of snapping it to the pointer
+        let _grabOffset = null;
 
         const _undoManager = function() {
             return wpd.appData.getUndoManager();
@@ -942,7 +945,10 @@ wpd.DataPointEditTool = (function() {
             if (_moveIndex < 0 || _moveOldPos == null) {
                 return;
             }
-            const newPos = {x: imagePos.x, y: imagePos.y};
+            // pin the final position using the same grab offset and frame clamp as the live drag
+            const offset = _grabOffset != null ? _grabOffset : {x: 0, y: 0};
+            const newPos = wpd.graphicsWidget.clampImageToViewport(
+                imagePos.x + offset.x, imagePos.y + offset.y);
             if (_moveOldPos.x === newPos.x && _moveOldPos.y === newPos.y) {
                 // never actually moved: no-op, no undo entry
                 return;
@@ -953,7 +959,7 @@ wpd.DataPointEditTool = (function() {
             _undoManager().insertAction(new wpd.DatasetPointMoveAction(
                 dataset, _moveIndex, _moveOldPos, newPos, _refresh));
             _refreshDisplay();
-            wpd.graphicsWidget.updateZoomOnEvent(ev);
+            wpd.graphicsWidget.updateZoomToImagePosn(newPos.x, newPos.y);
         };
 
         const _finishGesture = function(ev, pos, imagePos) {
@@ -1004,6 +1010,7 @@ wpd.DataPointEditTool = (function() {
             _suppressNextClick = false;
             _moveIndex = -1;
             _moveOldPos = null;
+            _grabOffset = null;
 
             if (helpers.isRemoveModifier(_mods)) {
                 _mode = 'remove';
@@ -1014,6 +1021,8 @@ wpd.DataPointEditTool = (function() {
                     _moveIndex = hitIndex;
                     const p = dataset.getPixel(hitIndex);
                     _moveOldPos = {x: p.x, y: p.y};
+                    // anchor the drag to the point: subsequent motion is a delta from here
+                    _grabOffset = {x: p.x - imagePos.x, y: p.y - imagePos.y};
                 } else {
                     _mode = 'noop'; // Shift+click with no nearby point does nothing
                 }
@@ -1039,13 +1048,15 @@ wpd.DataPointEditTool = (function() {
         this.onMouseMove = function(ev, pos, imagePos) {
             if (_gestureActive) {
                 if (_mode === 'move' && _moveIndex >= 0) {
-                    if (ev.target != null && ev.target.style != null) {
-                        ev.target.style.cursor = "grabbing";
-                    }
-                    dataset.setPixelAt(_moveIndex, imagePos.x, imagePos.y);
+                    // move the point by the pointer delta from its grabbed location, clamped so it
+                    // stays within the frame; the drawn crosshair tracks the point, not the pointer
+                    const offset = _grabOffset != null ? _grabOffset : {x: 0, y: 0};
+                    const target = wpd.graphicsWidget.clampImageToViewport(
+                        imagePos.x + offset.x, imagePos.y + offset.y);
+                    dataset.setPixelAt(_moveIndex, target.x, target.y);
                     wpd.graphicsWidget.resetData();
                     wpd.graphicsWidget.forceHandlerRepaint();
-                    wpd.graphicsWidget.updateZoomOnEvent(ev);
+                    wpd.graphicsWidget.renderCursorAtImagePos(target.x, target.y, ev);
                 }
                 return;
             }
@@ -1053,6 +1064,12 @@ wpd.DataPointEditTool = (function() {
             if (ev.target != null && ev.target.style != null) {
                 ev.target.style.cursor = helpers.cursorForOp(_hoverOp(ev, imagePos));
             }
+        };
+
+        // true while a grabbed point is being dragged; the widget then lets this tool drive the
+        // drawn cursor overlay (drawn on the point) and continues the drag past the canvas edge
+        this.isMoveGestureActive = function() {
+            return _gestureActive && _mode === 'move' && _moveIndex >= 0;
         };
 
         // State for the drawn cursor overlay's glyph: { mode, near }. The mode is driven purely by
@@ -1063,6 +1080,9 @@ wpd.DataPointEditTool = (function() {
         // modSource carries the modifier-key flags (the mouse event on hover, or the key event on a
         // modifier change).
         this.getHoverMode = function(imagePos, modSource) {
+            if (_gestureActive && _mode === 'move') {
+                return {mode: 'move', near: true}; // frozen while dragging; keys don't change it
+            }
             const mods = helpers.captureModifiers(modSource);
             const near = dataset.findNearestPixel(imagePos.x, imagePos.y, helpers.HIT_THRESHOLD) >= 0;
             if (helpers.isRemoveModifier(mods)) {

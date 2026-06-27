@@ -46,6 +46,9 @@ wpd.AxesCornersTool = class {
         this._pendingPair = null;
         this._isDraggingAdd = false;
         this._addBefore = null;
+        // image-px offset from the pointer to the grabbed point at grab time, so a move drag is a
+        // delta from the point's own location (no jump) instead of snapping it to the pointer
+        this._grabOffset = null;
 
         // repaint calibration points and re-evaluate the Complete button on undo/redo
         this._afterRestore = function() {
@@ -98,6 +101,7 @@ wpd.AxesCornersTool = class {
         this._pendingPair = null;
         this._isDraggingAdd = false;
         this._addBefore = null;
+        this._grabOffset = null;
 
         // Calibration ignores Shift/Ctrl: placement is contextual (auto-grab a nearby point to drag
         // it, otherwise add a new point). Alt forces a fresh placement even when near a point.
@@ -105,6 +109,9 @@ wpd.AxesCornersTool = class {
 
         if (nearest >= 0 && this._mods.altKey !== true) {
             this._beginMove(nearest);
+            // anchor the drag to the point: subsequent motion is a delta from here
+            const p = this._calibration.getPoint(nearest);
+            this._grabOffset = {x: p.px - imagePos.x, y: p.py - imagePos.y};
             return;
         }
 
@@ -154,8 +161,14 @@ wpd.AxesCornersTool = class {
         }
 
         if (this._mode === 'move' && this._moveIndex >= 0) {
-            this._calibration.changePointPx(this._moveIndex, imagePos.x, imagePos.y);
+            // move by the pointer delta from the grabbed location, clamped to the frame; the drawn
+            // crosshair tracks the point, not the pointer
+            const offset = this._grabOffset != null ? this._grabOffset : {x: 0, y: 0};
+            const target = wpd.graphicsWidget.clampImageToViewport(
+                imagePos.x + offset.x, imagePos.y + offset.y);
+            this._calibration.changePointPx(this._moveIndex, target.x, target.y);
             wpd.graphicsWidget.forceHandlerRepaint();
+            wpd.graphicsWidget.renderCursorAtImagePos(target.x, target.y, ev);
         } else if (this._mode === 'add' && this._pendingPair != null) {
             if (!this._isDraggingAdd && this._helpers.exceedsDragThreshold(this._pressPos, pos)) {
                 this._isDraggingAdd = true;
@@ -171,6 +184,9 @@ wpd.AxesCornersTool = class {
     // fresh placement, so it shows add even near a point. No glyph once every point is placed and
     // the pointer is not near one (a click would do nothing). modSource carries the modifier flags.
     getHoverMode(imagePos, modSource) {
+        if (this._gestureActive && this._mode === 'move') {
+            return {mode: 'move', near: true}; // frozen while dragging; keys don't change it
+        }
         const mods = this._helpers.captureModifiers(modSource);
         const nearest = this._calibration.findNearestPoint(
             imagePos.x, imagePos.y, this._helpers.HIT_THRESHOLD);
@@ -228,7 +244,10 @@ wpd.AxesCornersTool = class {
         if (this._moveIndex < 0 || this._moveOldPx == null) {
             return;
         }
-        const newPx = {px: imagePos.x, py: imagePos.y};
+        // pin the final position using the same grab offset and frame clamp as the live drag
+        const offset = this._grabOffset != null ? this._grabOffset : {x: 0, y: 0};
+        const clamped = wpd.graphicsWidget.clampImageToViewport(imagePos.x + offset.x, imagePos.y + offset.y);
+        const newPx = {px: clamped.x, py: clamped.y};
         if (this._moveOldPx.px === newPx.px && this._moveOldPx.py === newPx.py) {
             return; // no actual movement
         }
@@ -236,7 +255,7 @@ wpd.AxesCornersTool = class {
         this._undoManager().insertAction(new wpd.CalibrationPointMoveAction(
             this._calibration, this._moveIndex, this._moveOldPx, newPx, this._afterRestore));
         wpd.graphicsWidget.forceHandlerRepaint();
-        wpd.graphicsWidget.updateZoomOnEvent(ev);
+        wpd.graphicsWidget.updateZoomToImagePosn(newPx.px, newPx.py);
         wpd.alignAxes.updateCalibrationCompletion();
     }
 
@@ -290,6 +309,12 @@ wpd.AxesCornersTool = class {
         this._pendingPair = null;
         this._isDraggingAdd = false;
         this._addBefore = null;
+    }
+
+    // true while a grabbed point is being dragged; the widget then lets this tool drive the drawn
+    // cursor overlay (drawn on the point) and continues the drag past the canvas edge
+    isMoveGestureActive() {
+        return this._gestureActive && this._mode === 'move' && this._moveIndex >= 0;
     }
 
     onMouseUp(ev, pos, imagePos) {

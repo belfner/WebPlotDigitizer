@@ -601,6 +601,11 @@ wpd.graphicsWidget = (function() {
     }
 
     function hoverOverCanvas(ev) {
+        // during a point-move drag the active tool drives the overlay (crosshair + magnifier) from
+        // the grabbed point's position, so ignore the raw hardware-pointer hover here
+        if (isToolMoveDragging()) {
+            return;
+        }
         let pos = posn(ev);
         let xpos = pos.x * dpRatio;
         let ypos = pos.y * dpRatio;
@@ -644,10 +649,34 @@ wpd.graphicsWidget = (function() {
     // keyup so the mode glyph tracks Ctrl/Shift without the mouse moving. No-op when the pointer is
     // not over the canvas.
     function redrawCursorForModifier(ev) {
+        if (isToolMoveDragging()) {
+            return; // glyph is frozen while dragging a point; modifier keys don't change it
+        }
         if (lastHoverDevicePos == null) {
             return;
         }
         renderCursorOverlay(lastHoverDevicePos.x, lastHoverDevicePos.y, lastHoverImagePos, ev);
+    }
+
+    // Draw the cursor overlay (crosshair + glyph) and update the magnifier at a given image-px
+    // position rather than the hardware pointer. Used while dragging a grabbed point so the drawn
+    // cursor tracks the point itself (the native cursor is hidden, so this is the visible pointer).
+    function renderCursorAtImagePos(imageX, imageY, modSource) {
+        const s = imageToScreenPx(imageX, imageY);
+        renderCursorOverlay(s.x * dpRatio, s.y * dpRatio, {x: imageX, y: imageY}, modSource);
+        setZoomImage(imageX, imageY);
+        wpd.zoomView.setCoords(imageX, imageY);
+    }
+
+    // Clamp an image-px position so its on-screen location stays within the visible viewport
+    // ("frame"). Lets a point be dragged right up to the frame edge regardless of where the
+    // (offset) hardware pointer is, and keeps it from being dragged off the frame.
+    function clampImageToViewport(imageX, imageY) {
+        const s = imageToScreenPx(imageX, imageY);
+        const vp = wpd.layoutManager.getGraphicsViewportSize();
+        const cx = Math.min(Math.max(s.x, 0), vp.width);
+        const cy = Math.min(Math.max(s.y, 0), vp.height);
+        return screenToImagePx(cx, cy);
     }
 
     // Small crosshair centered on (xpos, ypos) in device px, with a gap around the center so the
@@ -1142,9 +1171,19 @@ wpd.graphicsWidget = (function() {
         activeTool = null;
     }
 
+    // True while the active tool is dragging a grabbed point. During this the move drag is driven
+    // from the document (so it continues past the canvas edge) and this tool draws the overlay.
+    function isToolMoveDragging() {
+        return activeTool != null && activeTool.isMoveGestureActive != undefined &&
+            activeTool.isMoveGestureActive();
+    }
+
     function onMouseMove(ev) {
         if (isPanning) {
             return;
+        }
+        if (isToolMoveDragging()) {
+            return; // the document-level handler drives the move drag (continues off-canvas)
         }
         if (activeTool != null && activeTool.onMouseMove != undefined) {
             const pos = posn(ev);
@@ -1156,13 +1195,20 @@ wpd.graphicsWidget = (function() {
     // Pan the viewport while the middle mouse button is held. Scroll offsets are
     // clamped by the browser, so the image cannot be panned past its edges.
     function onDocumentMouseMove(ev) {
-        if (!isPanning) {
+        if (isPanning) {
+            panX = panStart.panX - (ev.clientX - panStart.x) * dpRatio / zoomRatio;
+            panY = panStart.panY - (ev.clientY - panStart.y) * dpRatio / zoomRatio;
+            clampPan();
+            scheduleRender();
             return;
         }
-        panX = panStart.panX - (ev.clientX - panStart.x) * dpRatio / zoomRatio;
-        panY = panStart.panY - (ev.clientY - panStart.y) * dpRatio / zoomRatio;
-        clampPan();
-        scheduleRender();
+        // Keep a point-move drag updating after the pointer leaves the canvas; the tool clamps the
+        // point to the frame, so the drag effectively ends only when the point reaches the edge.
+        if (isToolMoveDragging() && activeTool.onMouseMove != undefined) {
+            const pos = posn(ev);
+            const imagePos = screenToImagePx(pos.x, pos.y);
+            activeTool.onMouseMove(ev, pos, imagePos);
+        }
     }
 
     function onMouseClick(ev) {
@@ -1213,9 +1259,19 @@ wpd.graphicsWidget = (function() {
             const imagePos = screenToImagePx(pos.x, pos.y);
             activeTool.onMouseDown(ev, pos, imagePos);
         }
+        if (isToolMoveDragging()) {
+            // a grabbed-point drag continues off the canvas; suppress the default mousedown action
+            // so the browser does not start selecting page text once the pointer leaves the edge
+            ev.preventDefault();
+        }
     }
 
     function onMouseOut(ev) {
+        // while dragging a grabbed point, keep the overlay: the drag continues off-canvas and the
+        // tool keeps drawing the crosshair on the point until the point reaches the frame edge
+        if (isToolMoveDragging()) {
+            return;
+        }
         // pointer left the canvas: clear the drawn crosshair so it does not linger at the edge,
         // and drop the stored hover position so a modifier press does not redraw a stale glyph
         if ($topCanvas != null) {
@@ -1323,6 +1379,8 @@ wpd.graphicsWidget = (function() {
 
         updateZoomOnEvent: updateZoomOnEvent,
         updateZoomToImagePosn: updateZoomToImagePosn,
+        renderCursorAtImagePos: renderCursorAtImagePos,
+        clampImageToViewport: clampImageToViewport,
 
         getDisplaySize: getDisplaySize,
         getImageSize: getImageSize,

@@ -8,3 +8,4 @@ experiments
 dist
 .venv
 locale/*/LC_MESSAGES/*.mo
+locale/messages.pot

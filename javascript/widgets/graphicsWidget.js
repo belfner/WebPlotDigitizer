@@ -102,6 +102,11 @@ wpd.graphicsWidget = (function() {
     let pendingHoverEvent = null;
     let hoverFrameId = null;
 
+    // Last hovered pointer position (device px) and image px, kept so a modifier key press/release
+    // can redraw the drawn cursor overlay (and its mode glyph) in place. Null when off-canvas.
+    let lastHoverDevicePos = null;
+    let lastHoverImagePos = null;
+
     function posn(ev) { // get screen pixel from event
         let mainCanvasPosition = $mainCanvas.getBoundingClientRect();
         return {
@@ -601,9 +606,27 @@ wpd.graphicsWidget = (function() {
         let ypos = pos.y * dpRatio;
         let imagePos = screenToImagePx(pos.x, pos.y);
 
+        // remember where the pointer is so a modifier key press/release can redraw the overlay
+        // (and its mode glyph) in place, without waiting for the mouse to move
+        lastHoverDevicePos = {x: xpos, y: ypos};
+        lastHoverImagePos = imagePos;
+        renderCursorOverlay(xpos, ypos, imagePos, ev);
+
+        setZoomImage(imagePos.x, imagePos.y);
+        wpd.zoomView.setCoords(imagePos.x, imagePos.y);
+    }
+
+    // Repaint the top-layer cursor overlay: the small crosshair, the optional extended-crosshair
+    // lines, and a mode glyph for the operation a click would perform given the held modifiers.
+    // The native OS cursor is hidden over the canvas (see .canvasLayers in styles.css), so this
+    // drawn overlay is the only pointer indicator and is immune to any OS / window-manager cursor
+    // changes (e.g. a modifier being held). modSource carries the current modifier-key state and
+    // is either the mouse event (on hover) or the key event (on a modifier press/release).
+    function renderCursorOverlay(xpos, ypos, imagePos, modSource) {
+        $topCanvas.width = $topCanvas.width; // clear the previous overlay
         if (extendedCrosshair) {
-            $topCanvas.width = $topCanvas.width;
             topCtx.strokeStyle = "rgba(0,0,0, 0.5)";
+            topCtx.lineWidth = 1;
             topCtx.beginPath();
             topCtx.moveTo(xpos, 0);
             topCtx.lineTo(xpos, height);
@@ -611,9 +634,102 @@ wpd.graphicsWidget = (function() {
             topCtx.lineTo(width, ypos);
             topCtx.stroke();
         }
+        drawCursorCrosshair(xpos, ypos);
+        if (activeTool != null && activeTool.getHoverMode != undefined && imagePos != null) {
+            drawModeGlyph(xpos, ypos, activeTool.getHoverMode(imagePos, modSource));
+        }
+    }
 
-        setZoomImage(imagePos.x, imagePos.y);
-        wpd.zoomView.setCoords(imagePos.x, imagePos.y);
+    // Redraw the overlay in place for the current modifier state. Called on a modifier keydown or
+    // keyup so the mode glyph tracks Ctrl/Shift without the mouse moving. No-op when the pointer is
+    // not over the canvas.
+    function redrawCursorForModifier(ev) {
+        if (lastHoverDevicePos == null) {
+            return;
+        }
+        renderCursorOverlay(lastHoverDevicePos.x, lastHoverDevicePos.y, lastHoverImagePos, ev);
+    }
+
+    // Small crosshair centered on (xpos, ypos) in device px, with a gap around the center so the
+    // exact target stays visible. Drawn as a light halo under a dark line so it reads on both
+    // light and dark images. This replaces the (hidden) native cursor over the canvas.
+    function drawCursorCrosshair(xpos, ypos) {
+        const arm = 10 * dpRatio; // length of each crosshair arm
+        const gap = 3 * dpRatio; // gap on each side of the center point
+        const segments = [
+            [xpos - arm, ypos, xpos - gap, ypos],
+            [xpos + gap, ypos, xpos + arm, ypos],
+            [xpos, ypos - arm, xpos, ypos - gap],
+            [xpos, ypos + gap, xpos, ypos + arm]
+        ];
+        const strokeSegments = function(style, lineWidth) {
+            topCtx.strokeStyle = style;
+            topCtx.lineWidth = lineWidth;
+            topCtx.beginPath();
+            for (let i = 0; i < segments.length; i++) {
+                topCtx.moveTo(segments[i][0], segments[i][1]);
+                topCtx.lineTo(segments[i][2], segments[i][3]);
+            }
+            topCtx.stroke();
+        };
+        strokeSegments("rgba(255,255,255,0.9)", 3 * dpRatio); // halo
+        strokeSegments("rgba(0,0,0,0.9)", 1 * dpRatio); // line
+    }
+
+    // Draw a small glyph in the upper-right quadrant of the crosshair for the armed operation:
+    // '+' add (green), '-' remove (red), box move (blue). state is { mode, near } from the tool;
+    // 'noop'/null show no glyph. The move and remove glyphs are dim while armed and light up (full
+    // color, filled box) once `near` is true, i.e. a click would actually grab/remove a point.
+    function drawModeGlyph(xpos, ypos, state) {
+        if (state == null) {
+            return;
+        }
+        const mode = state.mode;
+        const near = state.near === true;
+        const gx = xpos + 8 * dpRatio; // glyph center, up-right of the crosshair center
+        const gy = ypos - 8 * dpRatio;
+        const h = 2.5 * dpRatio; // glyph half-size
+        if (mode === 'add') {
+            drawPlusMinusGlyph(gx, gy, h, true, "rgba(20,150,20,1)");
+        } else if (mode === 'remove') {
+            drawPlusMinusGlyph(gx, gy, h, false, near ? "rgba(210,30,30,1)" : "rgba(210,30,30,0.4)");
+        } else if (mode === 'move') {
+            drawBoxGlyph(gx, gy, h, near ? "rgba(40,90,200,1)" : "rgba(40,90,200,0.4)", near);
+        }
+    }
+
+    // A small square centered at (gx, gy), colored over a white halo. Filled when `filled` is true.
+    function drawBoxGlyph(gx, gy, h, color, filled) {
+        topCtx.strokeStyle = "rgba(255,255,255,0.95)";
+        topCtx.lineWidth = 3 * dpRatio;
+        topCtx.strokeRect(gx - h, gy - h, 2 * h, 2 * h); // white halo
+        if (filled) {
+            topCtx.fillStyle = color;
+            topCtx.fillRect(gx - h, gy - h, 2 * h, 2 * h);
+        }
+        topCtx.strokeStyle = color;
+        topCtx.lineWidth = 1.5 * dpRatio;
+        topCtx.strokeRect(gx - h, gy - h, 2 * h, 2 * h);
+    }
+
+    // A plus (isPlus true) or minus (isPlus false) centered at (gx, gy), colored over a white halo.
+    function drawPlusMinusGlyph(gx, gy, h, isPlus, color) {
+        const draw = function(style, lineWidth) {
+            topCtx.strokeStyle = style;
+            topCtx.lineWidth = lineWidth;
+            topCtx.lineCap = "round";
+            topCtx.beginPath();
+            topCtx.moveTo(gx - h, gy);
+            topCtx.lineTo(gx + h, gy);
+            if (isPlus) {
+                topCtx.moveTo(gx, gy - h);
+                topCtx.lineTo(gx, gy + h);
+            }
+            topCtx.stroke();
+        };
+        draw("rgba(255,255,255,0.95)", 3.5 * dpRatio); // halo
+        draw(color, 2 * dpRatio);
+        topCtx.lineCap = "butt"; // restore default
     }
 
     function getRotatedCoordinates(sourceDegrees, targetDegrees, x, y) {
@@ -875,6 +991,17 @@ wpd.graphicsWidget = (function() {
             }
         }, true);
 
+        // Redraw the cursor overlay's mode glyph when a modifier key changes, so it tracks
+        // Ctrl/Shift immediately while the pointer is stationary. Gated on the pointer being over
+        // the canvas (redrawCursorForModifier no-ops otherwise), not on click focus.
+        const onModifierKey = function(ev) {
+            if (wpd.keyCodes.isModifier(ev.keyCode)) {
+                redrawCursorForModifier(ev);
+            }
+        };
+        document.addEventListener("keydown", onModifierKey, true);
+        document.addEventListener("keyup", onModifierKey, true);
+
         // Global undo/redo. Lives outside the isCanvasInFocus gate so Ctrl+Z works right after a
         // sidebar-triggered operation (e.g. an algorithm run) with no prior canvas mousedown.
         document.addEventListener("keydown", function(ev) {
@@ -1089,6 +1216,13 @@ wpd.graphicsWidget = (function() {
     }
 
     function onMouseOut(ev) {
+        // pointer left the canvas: clear the drawn crosshair so it does not linger at the edge,
+        // and drop the stored hover position so a modifier press does not redraw a stale glyph
+        if ($topCanvas != null) {
+            $topCanvas.width = $topCanvas.width;
+        }
+        lastHoverDevicePos = null;
+        lastHoverImagePos = null;
         if (activeTool != null && activeTool.onMouseOut != undefined) {
             const pos = posn(ev);
             const imagePos = screenToImagePx(pos.x, pos.y);

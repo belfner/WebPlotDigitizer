@@ -92,15 +92,15 @@ td {
     background: white;
 }
 
-#canvasDiv:hover {
-    cursor: crosshair;
-}
-
 .canvasLayers {
     background: transparent;
     position: absolute;
     top: 0px;
     left: 0px;
+    /* The widget draws its own crosshair on the top layer that follows the mouse, so the native
+       OS cursor is hidden over the canvas. !important intentionally overrides the per-tool inline
+       cursor values, which are superseded by the drawn crosshair. */
+    cursor: none !important;
 }
 
 .zoomLayers {

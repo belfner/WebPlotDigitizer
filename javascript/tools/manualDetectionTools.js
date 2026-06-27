@@ -1055,6 +1055,25 @@ wpd.DataPointEditTool = (function() {
             }
         };
 
+        // State for the drawn cursor overlay's glyph: { mode, near }. The mode is driven purely by
+        // the held modifiers, so the glyph signals which mode is armed wherever the pointer is:
+        // Ctrl/Cmd -> remove ('-'), Shift -> move (box), otherwise add ('+'); with both held remove
+        // wins, matching that Ctrl/Cmd takes priority on click. `near` is true when the pointer is
+        // within grab range of a point, so move/remove glyphs light up only when a click would act.
+        // modSource carries the modifier-key flags (the mouse event on hover, or the key event on a
+        // modifier change).
+        this.getHoverMode = function(imagePos, modSource) {
+            const mods = helpers.captureModifiers(modSource);
+            const near = dataset.findNearestPixel(imagePos.x, imagePos.y, helpers.HIT_THRESHOLD) >= 0;
+            if (helpers.isRemoveModifier(mods)) {
+                return {mode: 'remove', near: near};
+            }
+            if (mods.shiftKey) {
+                return {mode: 'move', near: near};
+            }
+            return {mode: 'add', near: false};
+        };
+
         this.onMouseUp = function(ev, pos, imagePos) {
             _finishGesture(ev, pos, imagePos);
         };

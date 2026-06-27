@@ -58,5 +58,10 @@ wpd.keyCodes = {
     },
     isEsc: function(code) {
         return code === 27;
+    },
+    isModifier: function(code) {
+        // Shift (16), Ctrl (17), Alt (18), Meta/Cmd (91 left, 93 right, 224 Firefox-mac)
+        return code === 16 || code === 17 || code === 18 ||
+            code === 91 || code === 93 || code === 224;
     }
 };

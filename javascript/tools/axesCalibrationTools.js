@@ -99,20 +99,10 @@ wpd.AxesCornersTool = class {
         this._isDraggingAdd = false;
         this._addBefore = null;
 
-        if (this._helpers.isRemoveModifier(this._mods)) {
-            return; // Ctrl/Cmd is a no-op in calibration
-        }
-
+        // Calibration ignores Shift/Ctrl: placement is contextual (auto-grab a nearby point to drag
+        // it, otherwise add a new point). Alt forces a fresh placement even when near a point.
         const nearest = this._calibration.findNearestPoint(imagePos.x, imagePos.y, this._helpers.HIT_THRESHOLD);
 
-        if (this._mods.shiftKey) {
-            if (nearest >= 0) {
-                this._beginMove(nearest);
-            }
-            return; // Shift with no nearby point does nothing
-        }
-
-        // plain left: auto-grab a nearby point to move it, unless Alt forces a fresh placement
         if (nearest >= 0 && this._mods.altKey !== true) {
             this._beginMove(nearest);
             return;
@@ -174,6 +164,23 @@ wpd.AxesCornersTool = class {
                 this._drawAddPreview(imagePos);
             }
         }
+    }
+
+    // State for the drawn cursor overlay's glyph: { mode, near }. Calibration ignores Shift/Ctrl, so
+    // the glyph is contextual: near a point -> move (box, lit), otherwise add ('+'). Alt forces a
+    // fresh placement, so it shows add even near a point. No glyph once every point is placed and
+    // the pointer is not near one (a click would do nothing). modSource carries the modifier flags.
+    getHoverMode(imagePos, modSource) {
+        const mods = this._helpers.captureModifiers(modSource);
+        const nearest = this._calibration.findNearestPoint(
+            imagePos.x, imagePos.y, this._helpers.HIT_THRESHOLD);
+        if (nearest >= 0 && mods.altKey !== true) {
+            return {mode: 'move', near: true};
+        }
+        if (this._calibration.getCount() < this._calibration.maxPointCount) {
+            return {mode: 'add', near: false};
+        }
+        return {mode: 'noop', near: false};
     }
 
     _drawAddPreview(imagePos) {

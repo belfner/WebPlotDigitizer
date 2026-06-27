@@ -45,7 +45,12 @@ wpd.ColorPickerTool = (function() {
 })();
 
 wpd.ColorFilterRepainter = (function() {
-    var Painter = function() {
+    var Painter = function(autoDetector) {
+        // A null/undefined detector resolves to the active dataset detector at redraw time,
+        // preserving the historical no-arg behavior. The auto-calibration session injects its
+        // transient detector so the preview reflects that detector's binary data.
+        let injectedDetector = autoDetector != null ? autoDetector : null;
+
         this.painterName = 'colorFilterRepainter';
 
         this.onRedraw = function() {
@@ -54,9 +59,12 @@ wpd.ColorFilterRepainter = (function() {
                 wpd.graphicsWidget.copyImageDataLayerToScreen();
                 return;
             }
-            let ds = wpd.tree.getActiveDataset();
-            let autoDetector = wpd.appData.getPlotData().getAutoDetectionDataForDataset(ds);
-            wpd.colorSelectionWidget.paintFilteredColor(autoDetector.binaryData, autoDetector.mask);
+            let targetDetector = injectedDetector;
+            if (targetDetector == null) {
+                let ds = wpd.tree.getActiveDataset();
+                targetDetector = wpd.appData.getPlotData().getAutoDetectionDataForDataset(ds);
+            }
+            wpd.colorSelectionWidget.paintFilteredColor(targetDetector.binaryData, targetDetector.mask);
         };
 
         this.onAttach = function() {

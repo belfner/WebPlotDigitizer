@@ -343,8 +343,13 @@ wpd.CircularChartRecorderCalibrator = class extends wpd.AxesCalibrator {
 wpd.alignAxes = (function() {
     let calibration = null;
     let calibrator = null;
+    // Set only when the current calibration was started by the auto-calibration assist. When true,
+    // align() records one atomic AutoCalibrationApplyAction so the applied result is a single Ctrl+Z.
+    let pendingAutoCalibrationApply = false;
 
     function initiatePlotAlignment(axesTypeString) {
+        // A fresh calibration start (manual or auto) clears any stale auto-cal apply intent.
+        pendingAutoCalibrationApply = false;
         if (axesTypeString === "xy") {
             calibration = new wpd.Calibration(2);
             calibration.labels = ['X1', 'X2', 'Y1', 'Y2'];
@@ -415,14 +420,62 @@ wpd.alignAxes = (function() {
     // placement gesture. Pairs are dense index pairs into the calibration point list. Only XY, Bar,
     // and Map enable pairs; Polar/Ternary/CircularChartRecorder/Image place a single point per click.
     // The gesture engine is parameterized off this so enabling another type later is a one-line edit.
+    // Auto-calibration entry: start the normal XY calibration wizard with the detected points and
+    // axis values already filled in. The user lands in the standard AxesCornersTool confirm/drag UI
+    // and finishes with the same Calibrate button as a manual calibration.
+    function startXYWithPrefill(suggestion) {
+        initiatePlotAlignment("xy");
+        // initiatePlotAlignment cleared the flag; mark this calibration as auto-cal-originated so the
+        // eventual commit in align() records the atomic apply action.
+        pendingAutoCalibrationApply = true;
+
+        // index the four calibration points by slot so we add them in canonical X1,X2,Y1,Y2 order
+        const bySlot = {};
+        for (let cp of suggestion.calibrationPoints) {
+            bySlot[cp.slot] = cp;
+        }
+        const order = ['X1', 'X2', 'Y1', 'Y2'];
+        for (let slot of order) {
+            let cp = bySlot[slot];
+            // data values are set later from the sidebar inputs via setDataAt; only pixels matter here
+            calibration.addPoint(cp.px.x, cp.px.y, 0, 0);
+        }
+
+        document.getElementById('xy-axes-x1').value = bySlot['X1'].value;
+        document.getElementById('xy-axes-x2').value = bySlot['X2'].value;
+        document.getElementById('xy-axes-y1').value = bySlot['Y1'].value;
+        document.getElementById('xy-axes-y2').value = bySlot['Y2'].value;
+
+        if (suggestion.scales != null) {
+            if (suggestion.scales.x != null) {
+                document.getElementById('xy-axes-xscale').value =
+                    suggestion.scales.x === 'log' ? 'log' : 'linear';
+            }
+            if (suggestion.scales.y != null) {
+                document.getElementById('xy-axes-yscale').value =
+                    suggestion.scales.y === 'log' ? 'log' : 'linear';
+            }
+        }
+
+        updateCalibrationCompletion();
+        wpd.graphicsWidget.forceHandlerRepaint();
+    }
+
     function getCalibrationPointPairs(axesTypeString) {
         switch (axesTypeString) {
             case "xy":
-                return [[0, 1], [2, 3]];
+                return [
+                    [0, 1],
+                    [2, 3]
+                ];
             case "bar":
-                return [[0, 1]];
+                return [
+                    [0, 1]
+                ];
             case "map":
-                return [[0, 1]];
+                return [
+                    [0, 1]
+                ];
             default:
                 return [];
         }
@@ -476,7 +529,12 @@ wpd.alignAxes = (function() {
     }
 
     function getCornerValues() {
-        calibrator.getCornerValues();
+        // Dismiss callback for the invalid-input message popup. No calibrator implements
+        // getCornerValues, so guard the call: the popup has already returned the user to the
+        // calibration sidebar to correct the values.
+        if (calibrator != null && typeof calibrator.getCornerValues === 'function') {
+            calibrator.getCornerValues();
+        }
     }
 
     function pickCorners() {
@@ -487,12 +545,36 @@ wpd.alignAxes = (function() {
         wpd.graphicsWidget.removeTool();
         wpd.graphicsWidget.removeRepainter();
         wpd.graphicsWidget.resetData();
+
+        // Snapshot collection sizes before the commit so an auto-cal apply can identify exactly which
+        // axes (and possibly Default Dataset) this commit created.
+        const isAutoCalApply = pendingAutoCalibrationApply;
+        const plotData = wpd.appData.getPlotData();
+        const axesCountBefore = plotData.getAxesCount();
+        const datasetCountBefore = plotData.getDatasetCount();
+
         if (!calibrator.align()) {
+            // Keep the auto-cal intent set so a corrected retry still records the apply action.
             return;
         }
+        // The commit succeeded: consume the auto-cal intent (a later commit must not re-fire it).
+        pendingAutoCalibrationApply = false;
         // The transform is now committed; drop the calibration-point edit history so a later undo
         // cannot move calibration points out from under the finalized axes transform.
         wpd.appData.getUndoManager().dropCalibrationActions();
+
+        // Record one atomic, committed undo step for an auto-cal apply. It must be inserted AFTER
+        // dropCalibrationActions(): it is intentionally not marked affectsCalibration, so it survives.
+        if (isAutoCalApply && plotData.getAxesCount() === axesCountBefore + 1) {
+            const createdAxes = plotData.getAxesColl()[plotData.getAxesCount() - 1];
+            let createdDataset = null;
+            if (plotData.getDatasetCount() === datasetCountBefore + 1) {
+                createdDataset = plotData.getDatasets()[plotData.getDatasetCount() - 1];
+            }
+            wpd.appData.getUndoManager().insertAction(
+                new wpd.AutoCalibrationApplyAction(createdAxes, createdDataset));
+        }
+
         wpd.sidebar.clear();
         wpd.tree.refresh();
         let dsNameColl = wpd.appData.getPlotData().getDatasetNames();
@@ -728,6 +810,7 @@ wpd.alignAxes = (function() {
 
     return {
         start: initiatePlotAlignment,
+        startXYWithPrefill: startXYWithPrefill,
         calibrationCompleted: calibrationCompleted,
         getCalibrationPointPairs: getCalibrationPointPairs,
         updateCalibrationCompletion: updateCalibrationCompletion,

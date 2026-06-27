@@ -105,6 +105,52 @@
     </div>
 </div>
 
+<div id="auto-calibration-sidebar" class="sidebar">
+    <p class="sidebar-title">{{ _("Auto-Calibrate Axes (beta)") }}</p>
+    <p class="sidebar-help">{{ _("Box-select or paint over the plot axes and tick labels, then click Detect. Review the proposed points, click Apply, then adjust and Calibrate as usual.") }}</p>
+    <p>{{ _("Mask") }}
+        <input type="button" value="{{ _("Box") }}" style="width:50px;" onclick="wpd.autoCalibrationController.markBox();" id="auto-cal-box-mask"><input type="button" value="{{ _("Pen") }}" style="width:45px;" onClick="wpd.autoCalibrationController.markPen();" id="auto-cal-pen-mask"><input type="button" value="{{ _("Erase") }}" style="width:50px;" onClick="wpd.autoCalibrationController.eraseMarks();" id="auto-cal-erase-mask"><input type="button" value="{{ _("View") }}" style="width:40px;" onclick="wpd.autoCalibrationController.viewMask();" id="auto-cal-view-mask" />
+    </p>
+    <div id="auto-cal-mask-erase-container" class="sidebar-extras">
+        <p align="center">{{ _("Width") }} <input type="range" id="auto-cal-eraseThickness" min="1" max="150" value="20" style="width:80px;"> <input type="button" id="auto-cal-clearMaskBtn" value="{{ _("Erase All") }}" style="width:80px;" onclick="wpd.autoCalibrationController.clearMask();" /></p>
+    </div>
+    <div id="auto-cal-mask-paint-container" class="sidebar-extras">
+        <p align="center">{{ _("Width") }} <input type="range" id="auto-cal-paintThickness" min="1" max="150" value="20" style="width:120px;"></p>
+    </div>
+    <hr />
+    <p>
+        <label><input type="checkbox" id="auto-cal-use-color-filter" onchange="wpd.autoCalibrationController.toggleUseColorFilter();" /> {{ _("Use color (limit the mask to a chosen axis color)") }}</label>
+    </p>
+    <p>{{ _("Color") }}
+        <button id="auto-cal-color-button" onclick="wpd.autoCalibrationController.pickColor();" style="width: 25px;" class="has-tooltip" data-tooltip="{{ _("Pick the axis color from the image") }}">
+            <i class="bi bi-eyedropper"></i>
+        </button>
+        <select id="auto-cal-color-detection-mode-select" onchange="wpd.autoCalibrationController.changeDetectionMode();">
+            <option value="fg">{{ _("Foreground") }}</option>
+            <option value="bg">{{ _("Background") }}</option>
+        </select>
+    </p>
+    <div id="auto-cal-color-picker-container"></div>
+    <p>{{ _("Distance") }} <input type="text" size="3" id="auto-cal-color-distance-value" onchange="wpd.autoCalibrationController.changeColorDistance();" />
+        <input type="button" value="{{ _("Filter Colors") }}" onclick="wpd.autoCalibrationController.testColorDetection();" style="width: 90px;" id="auto-cal-filter-colors-btn">
+    </p>
+    <hr />
+    <p style="margin-top: 5px;" align="center">
+        <input type="button" value="{{ _("Detect") }}" id="auto-cal-run" style="width:70px;" onclick="wpd.autoCalibrationController.run();" />
+        <input type="button" value="{{ _("Apply") }}" id="auto-cal-apply" style="width:70px;" onclick="wpd.autoCalibrationController.applyDetected();" disabled />
+        <input type="button" value="{{ _("Reset") }}" id="auto-cal-reset" style="width:70px;" onclick="wpd.autoCalibrationController.reset();" />
+    </p>
+    <p id="auto-cal-status" class="sidebar-help"></p>
+    <div id="auto-cal-review-container" style="display:none;">
+        <hr />
+        <p class="sidebar-help">{{ _("Click an axis to add a tick; drag a tick to move it; Ctrl/Cmd-click or Delete removes it. Edit the values below, then click Apply.") }}</p>
+        <p align="center">
+            <input type="button" value="{{ _("Scan Labels") }}" id="auto-cal-scan-btn" style="width:110px;" onclick="wpd.autoCalibrationController.rescanLabels();" />
+        </p>
+        <div id="auto-cal-tick-table-container"></div>
+    </div>
+</div>
+
 <!-- color picker -->
 <div id="color-picker-widget" class="sidebar-extras">
     <p>{{ _("RGB") }}: </p>

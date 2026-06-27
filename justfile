@@ -40,6 +40,9 @@ dist: build
     cp index*.html {{dist}}/
     cp wpd.min.js start.png favicon.ico LICENSE README.md CHANGES.md NOTICE.md {{dist}}/
     cp -R styles images {{dist}}/
+    cp -R vendor {{dist}}/
+    mkdir -p {{dist}}/javascript/workers
+    cp javascript/workers/autoCalibrationOcrWorker.js {{dist}}/javascript/workers/
     mkdir -p {{dist}}/node_modules/bootstrap-icons/font
     cp node_modules/bootstrap-icons/font/bootstrap-icons.min.css {{dist}}/node_modules/bootstrap-icons/font/
     cp -R node_modules/bootstrap-icons/font/fonts {{dist}}/node_modules/bootstrap-icons/font/

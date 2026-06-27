@@ -7,6 +7,7 @@ set -eu
 
 echo "Combining Javascript Code..."
 cat javascript/core/*.js > combined.js
+cat javascript/core/auto_calibration/*.js >> combined.js
 cat javascript/core/curve_detection/*.js >> combined.js
 cat javascript/core/point_detection/templateMatcherAlgo.js >> combined.js
 cat javascript/core/point_detection/templateMatcherWorker.js >> combined.js

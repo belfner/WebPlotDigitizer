@@ -57,6 +57,15 @@ wpd.calibrateAxesDialog = (function() {
         return document.getElementById(infoId);
     }
 
+    function _updateAutoDetectVisibility(itemId) {
+        // Auto-detect is an XY-only assist; show its button only when the XY axes type is selected.
+        const $btn = document.getElementById("calibrate-axes-autodetect-btn");
+        if ($btn === null) {
+            return;
+        }
+        $btn.style.display = (_getChartType(itemId) === "xy") ? "inline" : "none";
+    }
+
     function _onSelect(ev) {
         _unselectAll();
         let $item = ev.target;
@@ -64,6 +73,7 @@ wpd.calibrateAxesDialog = (function() {
         const $infoItem = _getInfoElement($item.id);
         $infoItem.style.display = "inline";
         $selectedItem = $item;
+        _updateAutoDetectVisibility($item.id);
     }
 
     function open() {
@@ -76,6 +86,7 @@ wpd.calibrateAxesDialog = (function() {
             $infoItem.style.display = "inline";
             $selectedItem = $item;
         }
+        _updateAutoDetectVisibility($selectedItem.id);
         wpd.popup.show(dialogId);
     }
 
@@ -90,9 +101,15 @@ wpd.calibrateAxesDialog = (function() {
         wpd.alignAxes.start(chartType);
     }
 
+    function autoDetect() {
+        wpd.popup.close(dialogId);
+        wpd.autoCalibrationController.openForXYCalibration();
+    }
+
     return {
         open: open,
         cancel: cancel,
-        calibrate: calibrate
+        calibrate: calibrate,
+        autoDetect: autoDetect
     };
 })();

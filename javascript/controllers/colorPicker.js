@@ -185,40 +185,62 @@ wpd.colorSelectionWidget = (function() {
 })();
 
 wpd.colorPicker = (function() {
-    function getAutoDetectionData() {
-        let ds = wpd.tree.getActiveDataset();
-        return wpd.appData.getPlotData().getAutoDetectionDataForDataset(ds);
+    // DOM ids for the acquire-data sidebar color controls. The auto-calibration session passes its
+    // own id map (including a useColorFilter checkbox) so its color controls drive a transient
+    // detector. useColorFilter is null here: the dataset sidebar has no data-path checkbox and its
+    // detector keeps useColorFilter true.
+    const defaultColorControlIds = {
+        colorButton: 'color-button',
+        modeSelect: 'color-detection-mode-select',
+        distance: 'color-distance-value',
+        filterButton: 'filter-colors-btn',
+        pickerContainer: 'dataset-color-picker-container',
+        useColorFilter: null
+    };
+
+    function resolveContext(options) {
+        const opts = options || {};
+        let autoDetector = opts.autoDetector;
+        if (autoDetector == null) {
+            let ds = wpd.tree.getActiveDataset();
+            autoDetector = wpd.appData.getPlotData().getAutoDetectionDataForDataset(ds);
+        }
+        return {
+            autoDetector: autoDetector,
+            ids: opts.ids != null ? opts.ids : defaultColorControlIds
+        };
     }
 
-    function getFGPickerParams() {
-        let ad = getAutoDetectionData();
+    function getFGPickerParams(context) {
+        let ad = context.autoDetector;
         return {
             color: ad.fgColor,
-            triggerElementId: 'color-button',
-            parentElementId: 'dataset-color-picker-container',
+            triggerElementId: context.ids.colorButton,
+            parentElementId: context.ids.pickerContainer,
             setColorDelegate: function(col) {
                 ad.fgColor = col;
             }
         };
     }
 
-    function getBGPickerParams() {
-        let ad = getAutoDetectionData();
+    function getBGPickerParams(context) {
+        let ad = context.autoDetector;
         return {
             color: ad.bgColor,
-            triggerElementId: 'color-button',
-            parentElementId: 'dataset-color-picker-container',
+            triggerElementId: context.ids.colorButton,
+            parentElementId: context.ids.pickerContainer,
             setColorDelegate: function(col) {
                 ad.bgColor = col;
             }
         };
     }
 
-    function init() {
-        let $colorBtn = document.getElementById('color-button');
-        let $colorDistance = document.getElementById('color-distance-value');
-        let autoDetector = getAutoDetectionData();
-        let $modeSelector = document.getElementById('color-detection-mode-select');
+    function init(options) {
+        const context = resolveContext(options);
+        let autoDetector = context.autoDetector;
+        let $colorBtn = document.getElementById(context.ids.colorButton);
+        let $colorDistance = document.getElementById(context.ids.distance);
+        let $modeSelector = document.getElementById(context.ids.modeSelect);
         let color = null;
 
         if (autoDetector.colorDetectionMode === 'fg') {
@@ -233,15 +255,40 @@ wpd.colorPicker = (function() {
 
         $colorDistance.value = color_distance;
         $modeSelector.value = autoDetector.colorDetectionMode;
+
+        // When a data-path "Use color" checkbox is wired, sync it to the detector's toggle.
+        if (context.ids.useColorFilter != null) {
+            let $useColor = document.getElementById(context.ids.useColorFilter);
+            if ($useColor !== null) {
+                $useColor.checked = autoDetector.useColorFilter !== false;
+            }
+        }
     }
 
-    function changeColorDistance() {
-        let color_distance = parseFloat(document.getElementById('color-distance-value').value);
-        getAutoDetectionData().colorDistance = color_distance;
+    function changeColorDistance(options) {
+        const context = resolveContext(options);
+        let color_distance = parseFloat(document.getElementById(context.ids.distance).value);
+        context.autoDetector.colorDistance = color_distance;
         // Live-update: while the filter overlay is showing, re-run it so the new distance
         // is reflected immediately without toggling the button off and back on.
         if (isColorFilterActive()) {
-            applyColorFilter();
+            applyColorFilter(context);
+        }
+    }
+
+    function changeUseColorFilter(options) {
+        const context = resolveContext(options);
+        if (context.ids.useColorFilter == null) {
+            return;
+        }
+        let $useColor = document.getElementById(context.ids.useColorFilter);
+        if ($useColor === null) {
+            return;
+        }
+        context.autoDetector.useColorFilter = $useColor.checked;
+        // Reflect the new data path immediately if the filter overlay is showing.
+        if (isColorFilterActive()) {
+            applyColorFilter(context);
         }
     }
 
@@ -250,73 +297,77 @@ wpd.colorPicker = (function() {
         return repainter != null && repainter.painterName === 'colorFilterRepainter';
     }
 
-    function applyColorFilter() {
+    function applyColorFilter(context) {
         wpd.graphicsWidget.removeTool();
         wpd.graphicsWidget.removeRepainter();
         wpd.graphicsWidget.resetData();
 
         let ctx = wpd.graphicsWidget.getAllContexts();
-        let autoDetector = getAutoDetectionData();
+        let autoDetector = context.autoDetector;
         let imageSize = wpd.graphicsWidget.getImageSize();
 
         let imageData = ctx.oriImageCtx.getImageData(0, 0, imageSize.width, imageSize.height);
         autoDetector.generateBinaryData(imageData);
-        wpd.graphicsWidget.setRepainter(new wpd.ColorFilterRepainter());
+        wpd.graphicsWidget.setRepainter(new wpd.ColorFilterRepainter(autoDetector));
 
-        let $btn = document.getElementById('filter-colors-btn');
+        let $btn = document.getElementById(context.ids.filterButton);
         if ($btn !== null) {
             $btn.classList.add('pressed-button');
         }
     }
 
-    function clearColorFilter() {
+    function clearColorFilter(context) {
         wpd.graphicsWidget.removeTool();
         wpd.graphicsWidget.removeRepainter();
         wpd.graphicsWidget.resetData();
 
-        let $btn = document.getElementById('filter-colors-btn');
+        let $btn = document.getElementById(context.ids.filterButton);
         if ($btn !== null) {
             $btn.classList.remove('pressed-button');
         }
     }
 
-    function testColorDetection() {
+    function testColorDetection(options) {
+        const context = resolveContext(options);
         // Toggle: clicking Filter Colors again while the overlay is showing turns it back off.
         if (isColorFilterActive()) {
-            clearColorFilter();
+            clearColorFilter(context);
         } else {
-            applyColorFilter();
+            applyColorFilter(context);
         }
     }
 
-    function startPicker() {
+    function startPicker(options) {
+        const context = resolveContext(options);
         wpd.graphicsWidget.removeTool();
         wpd.graphicsWidget.removeRepainter();
         wpd.graphicsWidget.resetData();
         // Tearing down the repainter clears the filter overlay, so reflect that on the toggle.
-        let $btn = document.getElementById('filter-colors-btn');
+        let $btn = document.getElementById(context.ids.filterButton);
         if ($btn !== null) {
             $btn.classList.remove('pressed-button');
         }
-        if (getAutoDetectionData().colorDetectionMode === 'fg') {
-            wpd.colorSelectionWidget.setParams(getFGPickerParams());
+        if (context.autoDetector.colorDetectionMode === 'fg') {
+            wpd.colorSelectionWidget.setParams(getFGPickerParams(context));
         } else {
-            wpd.colorSelectionWidget.setParams(getBGPickerParams());
+            wpd.colorSelectionWidget.setParams(getBGPickerParams(context));
         }
         wpd.colorSelectionWidget.startPicker();
     }
 
-    function changeDetectionMode() {
-        let $modeSelector = document.getElementById('color-detection-mode-select');
-        getAutoDetectionData().colorDetectionMode = $modeSelector.value;
-        init();
-        startPicker();
+    function changeDetectionMode(options) {
+        const context = resolveContext(options);
+        let $modeSelector = document.getElementById(context.ids.modeSelect);
+        context.autoDetector.colorDetectionMode = $modeSelector.value;
+        init(options);
+        startPicker(options);
     }
 
     return {
         startPicker: startPicker,
         changeDetectionMode: changeDetectionMode,
         changeColorDistance: changeColorDistance,
+        changeUseColorFilter: changeUseColorFilter,
         init: init,
         testColorDetection: testColorDetection
     };

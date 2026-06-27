@@ -310,18 +310,40 @@ wpd.algoManager = (function() {
 })();
 
 wpd.dataMask = (function() {
-    function getAutoDetectionData() {
+    // DOM ids for the acquire-data sidebar mask controls. The auto-calibration session passes its
+    // own id map so its mask controls drive an independent transient detector.
+    const defaultMaskControlIds = {
+        box: 'box-mask',
+        pen: 'pen-mask',
+        erase: 'erase-mask',
+        view: 'view-mask',
+        paintContainer: 'mask-paint-container',
+        eraseContainer: 'mask-erase-container',
+        paintThickness: 'paintThickness',
+        eraseThickness: 'eraseThickness',
+        clear: 'clearMaskBtn'
+    };
+
+    function getActiveAutoDetectionData() {
         let ds = wpd.tree.getActiveDataset();
         return wpd.appData.getPlotData().getAutoDetectionDataForDataset(ds);
     }
 
-    function grabMask() {
+    function resolveAutoDetectionData(autoDetector) {
+        // A null/undefined target resolves to the active dataset detector, so no-arg callers keep
+        // their existing behavior.
+        if (autoDetector == null) {
+            return getActiveAutoDetectionData();
+        }
+        return autoDetector;
+    }
+
+    function grabMaskInto(autoDetector) {
         // Mask is just a list of pixels with the yellow color in the data layer
         let ctx = wpd.graphicsWidget.getAllContexts();
         let imageSize = wpd.graphicsWidget.getImageSize();
         let maskDataPx = ctx.oriDataCtx.getImageData(0, 0, imageSize.width, imageSize.height);
         let maskData = new Set();
-        let autoDetector = getAutoDetectionData();
 
         for (let i = 0; i < maskDataPx.data.length; i += 4) {
             if (maskDataPx.data[i] === 255 && maskDataPx.data[i + 1] === 255 &&
@@ -333,22 +355,26 @@ wpd.dataMask = (function() {
         autoDetector.setMask(maskData);
     }
 
-    function markBox() {
-        let tool = new wpd.BoxMaskTool();
+    function grabMask(autoDetector) {
+        grabMaskInto(resolveAutoDetectionData(autoDetector));
+    }
+
+    function markBox(options) {
+        let tool = new wpd.BoxMaskTool(options || {});
         wpd.graphicsWidget.setTool(tool);
     }
 
-    function markPen() {
-        let tool = new wpd.PenMaskTool();
+    function markPen(options) {
+        let tool = new wpd.PenMaskTool(options || {});
         wpd.graphicsWidget.setTool(tool);
     }
 
-    function eraseMarks() {
-        let tool = new wpd.EraseMaskTool();
+    function eraseMarks(options) {
+        let tool = new wpd.EraseMaskTool(options || {});
         wpd.graphicsWidget.setTool(tool);
     }
 
-    function viewMask() {
+    function viewMask(options) {
         // The mask overlay is shown both by the View tool and by the Box/Pen/Erase draw tools,
         // which press the View button as a side effect. Clicking View while any of them shows the
         // overlay turns it off and deactivates the active mask tool (its onRemove commits the mask
@@ -360,17 +386,22 @@ wpd.dataMask = (function() {
             wpd.graphicsWidget.resetData();
             return;
         }
-        let tool = new wpd.ViewMaskTool();
+        let tool = new wpd.ViewMaskTool(options || {});
         wpd.graphicsWidget.setTool(tool);
     }
 
-    function clearMask() {
+    function clearMask(options) {
+        const opts = options || {};
         wpd.graphicsWidget.resetData();
-        grabMask();
+        grabMask(opts.autoDetector);
     }
 
     return {
+        defaultMaskControlIds: defaultMaskControlIds,
+        getActiveAutoDetectionData: getActiveAutoDetectionData,
+        resolveAutoDetectionData: resolveAutoDetectionData,
         grabMask: grabMask,
+        grabMaskInto: grabMaskInto,
         markBox: markBox,
         markPen: markPen,
         eraseMarks: eraseMarks,

@@ -201,6 +201,10 @@ wpd.FileManager = class {
         wpd.utils.addToCollection(this.measurementsByFile, this.currentIndex, measurements);
     }
 
+    deleteAxesFromCurrentFile(axes) {
+        wpd.utils.deleteFromCollection(this.axesByFile, this.currentIndex, axes);
+    }
+
     deleteDatasetsFromCurrentFile(datasets) {
         wpd.utils.deleteFromCollection(this.datasetsByFile, this.currentIndex, datasets);
     }

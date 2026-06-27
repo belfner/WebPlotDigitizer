@@ -1,6 +1,6 @@
 /*
     WebPlotDigitizer - web based chart data extraction software (and more)
-    
+
     Copyright (C) 2025 Ankit Rohatgi
 
     This program is free software: you can redistribute it and/or modify
@@ -19,8 +19,25 @@
 
 var wpd = wpd || {};
 
+// Each mask tool accepts an options object:
+//   autoDetector : the AutoDetectionData to flush the painted mask into. null resolves to the
+//                  active dataset detector at flush time, so no-arg callers keep current behavior.
+//   ids          : DOM id map for the mask controls (defaults to the acquire-data sidebar ids).
+//   clearToolbarOnRemove : whether onRemove() clears the toolbar (defaults to true).
+wpd._resolveMaskToolOptions = function(options) {
+    const opts = options || {};
+    return {
+        autoDetector: opts.autoDetector != null ? opts.autoDetector : null,
+        ids: opts.ids != null ? opts.ids : wpd.dataMask.defaultMaskControlIds,
+        clearToolbarOnRemove: opts.clearToolbarOnRemove !== false
+    };
+};
+
 wpd.BoxMaskTool = class {
-    constructor() {
+    constructor(options) {
+        const opts = wpd._resolveMaskToolOptions(options);
+        this._autoDetector = opts.autoDetector;
+        this._ids = opts.ids;
         this.isDrawing = false;
         this.topImageCorner = null;
         this.topScreenCorner = null;
@@ -61,12 +78,16 @@ wpd.BoxMaskTool = class {
         ctx.oriDataCtx.fillRect(this.topImageCorner.x, this.topImageCorner.y,
             imagePos.x - this.topImageCorner.x,
             imagePos.y - this.topImageCorner.y);
+        // Flush the freshly painted box into the target detector on each completed draw.
+        wpd.dataMask.grabMask(this._autoDetector);
     }
 
     onAttach() {
-        wpd.graphicsWidget.setRepainter(new wpd.MaskPainter());
-        document.getElementById('box-mask').classList.add('pressed-button');
-        document.getElementById('view-mask').classList.add('pressed-button');
+        wpd.graphicsWidget.setRepainter(new wpd.MaskPainter(this._autoDetector, {
+            ids: this._ids
+        }));
+        document.getElementById(this._ids.box).classList.add('pressed-button');
+        document.getElementById(this._ids.view).classList.add('pressed-button');
     }
 
     onMouseDown(ev, pos, imagePos) {
@@ -107,15 +128,19 @@ wpd.BoxMaskTool = class {
     };
 
     onRemove() {
-        document.getElementById('box-mask').classList.remove('pressed-button');
-        document.getElementById('view-mask').classList.remove('pressed-button');
-        wpd.dataMask.grabMask();
+        document.getElementById(this._ids.box).classList.remove('pressed-button');
+        document.getElementById(this._ids.view).classList.remove('pressed-button');
+        wpd.dataMask.grabMask(this._autoDetector);
     };
 
 };
 
 wpd.PenMaskTool = (function() {
-    var Tool = function() {
+    var Tool = function(options) {
+        const opts = wpd._resolveMaskToolOptions(options);
+        const autoDetector = opts.autoDetector;
+        const ids = opts.ids;
+        const clearToolbarOnRemove = opts.clearToolbarOnRemove;
         var strokeWidth, ctx = wpd.graphicsWidget.getAllContexts(),
             isDrawing = false,
             moveTimer,
@@ -134,16 +159,18 @@ wpd.PenMaskTool = (function() {
             };
 
         this.onAttach = function() {
-            wpd.graphicsWidget.setRepainter(new wpd.MaskPainter());
-            document.getElementById('pen-mask').classList.add('pressed-button');
-            document.getElementById('view-mask').classList.add('pressed-button');
-            document.getElementById('mask-paint-container').style.display = 'block';
+            wpd.graphicsWidget.setRepainter(new wpd.MaskPainter(autoDetector, {
+                ids: ids
+            }));
+            document.getElementById(ids.pen).classList.add('pressed-button');
+            document.getElementById(ids.view).classList.add('pressed-button');
+            document.getElementById(ids.paintContainer).style.display = 'block';
         };
 
         this.onMouseDown = function(ev, pos, imagePos) {
             if (isDrawing === true)
                 return;
-            let lwidth = parseInt(document.getElementById('paintThickness').value, 10);
+            let lwidth = parseInt(document.getElementById(ids.paintThickness).value, 10);
             let canvasPos = wpd.graphicsWidget.screenToCanvasPx(pos.x, pos.y);
             isDrawing = true;
             ctx.dataCtx.globalCompositeOperation = "xor";
@@ -178,6 +205,8 @@ wpd.PenMaskTool = (function() {
             ctx.oriDataCtx.closePath();
             ctx.oriDataCtx.lineWidth = 1;
             isDrawing = false;
+            // Flush the freshly painted stroke into the target detector on each completed draw.
+            wpd.dataMask.grabMask(autoDetector);
         };
 
         this.onMouseOut = function(ev, pos, imagePos) {
@@ -185,18 +214,24 @@ wpd.PenMaskTool = (function() {
         };
 
         this.onRemove = function() {
-            document.getElementById('pen-mask').classList.remove('pressed-button');
-            document.getElementById('view-mask').classList.remove('pressed-button');
-            document.getElementById('mask-paint-container').style.display = 'none';
-            wpd.dataMask.grabMask();
-            wpd.toolbar.clear();
+            document.getElementById(ids.pen).classList.remove('pressed-button');
+            document.getElementById(ids.view).classList.remove('pressed-button');
+            document.getElementById(ids.paintContainer).style.display = 'none';
+            wpd.dataMask.grabMask(autoDetector);
+            if (clearToolbarOnRemove) {
+                wpd.toolbar.clear();
+            }
         };
     };
     return Tool;
 })();
 
 wpd.EraseMaskTool = (function() {
-    var Tool = function() {
+    var Tool = function(options) {
+        const opts = wpd._resolveMaskToolOptions(options);
+        const autoDetector = opts.autoDetector;
+        const ids = opts.ids;
+        const clearToolbarOnRemove = opts.clearToolbarOnRemove;
         var strokeWidth, ctx = wpd.graphicsWidget.getAllContexts(),
             isDrawing = false,
             moveTimer,
@@ -216,16 +251,18 @@ wpd.EraseMaskTool = (function() {
             };
 
         this.onAttach = function() {
-            wpd.graphicsWidget.setRepainter(new wpd.MaskPainter());
-            document.getElementById('erase-mask').classList.add('pressed-button');
-            document.getElementById('view-mask').classList.add('pressed-button');
-            document.getElementById('mask-erase-container').style.display = 'block';
+            wpd.graphicsWidget.setRepainter(new wpd.MaskPainter(autoDetector, {
+                ids: ids
+            }));
+            document.getElementById(ids.erase).classList.add('pressed-button');
+            document.getElementById(ids.view).classList.add('pressed-button');
+            document.getElementById(ids.eraseContainer).style.display = 'block';
         };
 
         this.onMouseDown = function(ev, pos, imagePos) {
             if (isDrawing === true)
                 return;
-            let lwidth = parseInt(document.getElementById('eraseThickness').value, 10);
+            let lwidth = parseInt(document.getElementById(ids.eraseThickness).value, 10);
             let canvasPos = wpd.graphicsWidget.screenToCanvasPx(pos.x, pos.y);
             isDrawing = true;
             ctx.dataCtx.globalCompositeOperation = "destination-out";
@@ -269,29 +306,39 @@ wpd.EraseMaskTool = (function() {
             ctx.oriDataCtx.globalCompositeOperation = "source-over";
 
             isDrawing = false;
+            // Flush the remaining mask into the target detector on each completed erase.
+            wpd.dataMask.grabMask(autoDetector);
         };
 
         this.onRemove = function() {
-            document.getElementById('erase-mask').classList.remove('pressed-button');
-            document.getElementById('view-mask').classList.remove('pressed-button');
-            document.getElementById('mask-erase-container').style.display = 'none';
-            wpd.dataMask.grabMask();
-            wpd.toolbar.clear();
+            document.getElementById(ids.erase).classList.remove('pressed-button');
+            document.getElementById(ids.view).classList.remove('pressed-button');
+            document.getElementById(ids.eraseContainer).style.display = 'none';
+            wpd.dataMask.grabMask(autoDetector);
+            if (clearToolbarOnRemove) {
+                wpd.toolbar.clear();
+            }
         };
     };
     return Tool;
 })();
 
 wpd.ViewMaskTool = (function() {
-    var Tool = function() {
+    var Tool = function(options) {
+        const opts = wpd._resolveMaskToolOptions(options);
+        const autoDetector = opts.autoDetector;
+        const ids = opts.ids;
+
         this.onAttach = function() {
-            wpd.graphicsWidget.setRepainter(new wpd.MaskPainter());
-            document.getElementById('view-mask').classList.add('pressed-button');
+            wpd.graphicsWidget.setRepainter(new wpd.MaskPainter(autoDetector, {
+                ids: ids
+            }));
+            document.getElementById(ids.view).classList.add('pressed-button');
         };
 
         this.onRemove = function() {
-            document.getElementById('view-mask').classList.remove('pressed-button');
-            wpd.dataMask.grabMask();
+            document.getElementById(ids.view).classList.remove('pressed-button');
+            wpd.dataMask.grabMask(autoDetector);
         };
     };
 
@@ -299,19 +346,21 @@ wpd.ViewMaskTool = (function() {
 })();
 
 wpd.MaskPainter = (function() {
-    var Painter = function() {
+    var Painter = function(autoDetector, options) {
         let ctx = wpd.graphicsWidget.getAllContexts();
-        let ds = wpd.tree.getActiveDataset();
-        let autoDetector = wpd.appData.getPlotData().getAutoDetectionDataForDataset(ds);
+        // A null/undefined detector resolves to the active dataset detector, preserving the
+        // historical no-arg behavior. A transient detector (auto-calibration session) is repainted
+        // and re-grabbed in isolation and never touches the active dataset mask.
+        let targetDetector = wpd.dataMask.resolveAutoDetectionData(autoDetector);
 
         let painter = function() {
-            if (autoDetector.mask == null || autoDetector.mask.size === 0) {
+            if (targetDetector.mask == null || targetDetector.mask.size === 0) {
                 return;
             }
             let imageSize = wpd.graphicsWidget.getImageSize();
             let imgData = ctx.oriDataCtx.getImageData(0, 0, imageSize.width, imageSize.height);
 
-            for (let img_index of autoDetector.mask) {
+            for (let img_index of targetDetector.mask) {
                 imgData.data[img_index * 4] = 255;
                 imgData.data[img_index * 4 + 1] = 255;
                 imgData.data[img_index * 4 + 2] = 0;
@@ -333,7 +382,9 @@ wpd.MaskPainter = (function() {
                 return;
             }
             if (!this.preventGrab) {
-                wpd.dataMask.grabMask();
+                // Re-grab into the injected detector only. This never resolves to the active
+                // dataset detector when a transient detector was injected.
+                wpd.dataMask.grabMaskInto(targetDetector);
             }
             painter();
         };

@@ -516,6 +516,8 @@
         <p style="text-align: center;">
             <input type="button" value="{{ _("Calibrate") }}" onclick="wpd.calibrateAxesDialog.calibrate();" />
             &nbsp;
+            <input type="button" id="calibrate-axes-autodetect-btn" value="{{ _("Auto-detect (beta)") }}" onclick="wpd.calibrateAxesDialog.autoDetect();" style="display: none;" />
+            &nbsp;
             &nbsp;
             <input type="button" value="{{ _("Cancel") }}" onclick="wpd.calibrateAxesDialog.cancel();" />
         </p>

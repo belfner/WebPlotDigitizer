@@ -22,7 +22,8 @@ var wpd = wpd || {};
 wpd._AutoDetectionDataCounter = 0;
 
 wpd.AutoDetectionData = class {
-    constructor() {
+    constructor(options) {
+        const opts = options || {};
         // public
         this.imageWidth = 0;
         this.imageHeight = 0;
@@ -32,6 +33,11 @@ wpd.AutoDetectionData = class {
         this.binaryData = new Set();
         this.colorDetectionMode = 'fg';
         this.colorDistance = 120;
+        // When false, generateBinaryDataFromMask returns the mask verbatim instead of
+        // applying color-distance filtering. Defaults to true so dataset auto-extraction
+        // keeps its existing color-filtered behavior; the transient axis auto-calibration
+        // detector opts out by passing {useColorFilter: false}.
+        this.useColorFilter = opts.useColorFilter !== false;
         this.algorithm = null;
         this.name = wpd._AutoDetectionDataCounter++;
     }
@@ -57,6 +63,7 @@ wpd.AutoDetectionData = class {
             mask: compressedMask,
             colorDetectionMode: this.colorDetectionMode,
             colorDistance: this.colorDistance,
+            useColorFilter: this.useColorFilter,
             algorithm: algoData,
             name: this.name,
             imageWidth: this.imageWidth,
@@ -78,6 +85,8 @@ wpd.AutoDetectionData = class {
         }
         this.colorDetectionMode = jsonObj.colorDetectionMode;
         this.colorDistance = jsonObj.colorDistance;
+        // Older projects predate useColorFilter; absence means always-filter, so default to true.
+        this.useColorFilter = jsonObj.useColorFilter !== false;
 
         if (jsonObj.algorithm != null) {
             let algoType = jsonObj.algorithm.algoType;
@@ -104,6 +113,12 @@ wpd.AutoDetectionData = class {
 
     generateBinaryDataFromMask(imageData) {
         this.binaryData = new Set();
+        if (this.useColorFilter === false) {
+            // Color filtering disabled: the mask itself is the foreground (used by the
+            // transient axis auto-calibration detector, which masks the axis region directly).
+            this.binaryData = new Set(this.mask);
+            return;
+        }
         let refColor = this.colorDetectionMode === 'fg' ? this.fgColor : this.bgColor;
         for (let imageIdx of this.mask) {
             let ir = imageData.data[imageIdx * 4];

@@ -41,6 +41,7 @@ module.exports = function(config) {
         files: [
             "javascript/*.js",
             "javascript/core/*.js",
+            "javascript/core/auto_calibration/*.js",
             "javascript/core/axes/*.js",
             "javascript/core/curve_detection/*.js",
             "javascript/core/point_detection/*.js",

@@ -432,6 +432,11 @@ wpd.autoCalibrationController = (function() {
                     editTickValue(a, idx, this.value);
                 };
             })(axis, i);
+            input.onfocus = (function(a, idx) {
+                return function() {
+                    selectTick(a, idx);
+                };
+            })(axis, i);
             valCell.appendChild(input);
             row.appendChild(valCell);
 

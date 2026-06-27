@@ -95,38 +95,24 @@ Manual mode is the most reliable choice for sparse, overlapping, or noisy plots.
 
 Automatic extraction finds points by color, entirely in your browser.
 
-**Pick the curve color.** Use the eyedropper to sample a color from the image,
-then choose whether it is the **Foreground** (the curve you want) or the
-**Background** (everything to exclude). Adjust the **Distance** tolerance and
-press **Filter Colors** to preview which pixels match until the curve is
-isolated cleanly.
+**Pick the data color.** Sample the curve, marker, or bar color with the
+eyedropper, then set the mode: **Foreground** keeps pixels close to the sampled
+color, **Background** keeps pixels far from it. Adjust the **Distance** tolerance
+and press **Filter Colors** to preview the matched pixels until the data is
+isolated; press it again to turn the preview off.
 
 **Restrict the search area with a mask.** The **Mask** tools confine extraction
-to the region you mark, keeping axis lines, gridlines, legends, and labels out
-of the result:
+to the region you mark, keeping axis lines, gridlines, legends, and labels out of
+the result: **Box** marks a rectangle, **Pen** paints a freehand region with its
+**Width** slider, **Erase** removes part of the mask (with its own **Width** and
+**Erase All**), and **View** toggles the mask overlay.
 
-- **Box** marks a rectangular region.
-- **Pen** paints an included region freehand; the **Width** slider sets the
-  brush size.
-- **Erase** removes part of the mask; its **Width** slider sets the eraser size,
-  and **Erase All** clears the whole mask.
-- **View** shows the current mask overlay.
-
-**Choose an algorithm** to match the plot. The available choices depend on the
-chart type:
-
-- **Averaging Window** traces thick, continuous lines.
-- **X Step** samples the curve at regular X intervals; **X Step w/
-  Interpolation** fills gaps between samples.
-- **Custom Independents** extracts values at a specific list of X positions you
-  supply with **Set Custom X Values**.
-- **Blob Detector** finds discrete objects and reports each one (useful for
-  scatter markers).
-- **Template Matching** locates repeated marker shapes after you define a
-  template by **Point** or **Box** (useful for scatter plots with a consistent
-  marker).
-- **Bar Extraction** measures bar heights on a calibrated bar chart.
-- **Histogram** extracts binned histogram values.
+**Choose an algorithm** to match the plot. Averaging Window and the X Step
+variants trace lines, Blob Detector and Template Matching read scatter markers,
+and Bar Extraction and Histogram read bars. The dropdown shows the algorithms
+that fit the calibrated axis type. See
+[Auto-Extracting Data](auto-extraction.md) for algorithm choice, parameters, and
+troubleshooting.
 
 Press **Run** to extract, then switch to manual mode to correct any stray or
 missing points.

@@ -235,17 +235,21 @@ dialog under the parameters. Enter a bracketed, comma-separated list:
 - Wrap the list in square brackets `[` and `]`, which mark the input as an array.
 - Separate values with commas; surrounding spaces are trimmed.
 - Use a period for the decimal separator, for example `[1.5, 2.25, 10]`.
-- Date X values use `/` or `:` in each entry, for example
-  `[1/2020, 6/2020, 12/2020]`, parsed against the axis date format.
+- Date X values are year-first, with `/` or `:` between fields, for example
+  `[2020/1, 2020/6, 2020/12]`. Each entry goes through the shared WebPlotDigitizer
+  date parser.
 
-The dialog stores the list on the algorithm; reopening it shows the list you last
-saved. A bracketed array is required: a bare number, or any entry containing `^`,
-leaves the previous list in place.
+The dialog stores whatever you enter and reopening it shows that text. A
+productive run needs a bracketed array: **Run** clears the dataset, parses the
+stored text, and places points when the text reads as an array. A bare number, or
+any entry containing `^`, parses to a single value, so Run clears the dataset and
+stops with the dataset empty.
 
 **Common results and fixes.**
 
-- No points appear. The trace found no matching pixels. Confirm the curve color,
-  raise **Distance**, check the mask covers the curve, and widen **Y min** to
+- The run leaves the dataset empty. The trace needs the curve color in each
+  column. Confirm the data color and raise **Distance** until **Filter Colors**
+  highlights the curve, check the mask covers the curve, and widen **Y min** to
   **Y max** so the scan crosses the curve.
 - Points appear over only part of the range. X values outside the spline support
   are skipped. Keep supplied X values within the span where the curve is drawn.
@@ -305,8 +309,8 @@ location, and places one point at the center of each surviving match. The scan
 runs in a background worker, so the interface stays responsive. Template Matching
 is offered for every axis type, including Bar.
 
-**Capture a template before Run (required).** Template Matching has nothing to
-scan for until you capture a template, so do this every run:
+**Capture a template before Run (required).** Template Matching scans for the
+template you capture, so capture one every run:
 
 1. Select **Template Matching**. The **Template** controls appear.
 2. Pick the marker color (Foreground mode) and set **Distance** so the marker
@@ -332,9 +336,9 @@ Capture a separate template per color series.
 
 **Common results and fixes.**
 
-- In **Point** mode the green box stays away. The picked color misses the marker
-  pixels, so the capture encloses an empty region. Re-pick the marker color and
-  raise **Distance**, then click the marker again.
+- In **Point** mode the green box stays away. The picked color sits off the
+  marker pixels, so the capture box closes on background. Re-pick the marker color
+  and raise **Distance**, then click the marker again.
 - Few regions match. A Box drag that included neighbors, gridlines, or text baked
   clutter into the template. Re-drag a tight box around one isolated marker, or
   use **Point**.
@@ -413,8 +417,8 @@ per bin.
 
 ## Troubleshooting
 
-**The run adds no points.** Re-sample the data color and adjust **Distance** until
-**Filter Colors** highlights the data, then Run again.
+**The run leaves the dataset empty.** Re-sample the data color and adjust
+**Distance** until **Filter Colors** highlights the data, then Run again.
 
 **Axis lines, gridlines, or labels appear as points.** Color filtering matched
 non-data pixels. Add or tighten a **Mask**, remove gridlines first, or lower the

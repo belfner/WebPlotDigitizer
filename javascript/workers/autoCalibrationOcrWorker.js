@@ -27,6 +27,26 @@
 //   out { type:'recognized', requestId, labels:[{id,bbox,axis,rawText,confidence,candidates:[{psm,text,confidence}]}] }
 //   out { type:'error', requestId, error }
 
+// The vendored tesseract-wasm engine routes its C++ stderr through the Emscripten module's `printErr`
+// callback, which defaults to `console.warn` (createOCREngine never forwards a custom one). Per-crop
+// recognition of tiny isolated tick labels makes Tesseract's layout analysis emit a flood of benign
+// diagnostics ("Empty page!!", resolution estimates, diacritic counts), one per pass. Filter those
+// specific lines out of the worker's console while passing every other warning/log through unchanged,
+// so a genuine Emscripten abort or library warning is still visible.
+const _OCR_NOISE = /^(Empty page!!|Estimating resolution|Detected \d+ diacritics|Warning[.:]? Invalid resolution|page \d+ skipped)/;
+
+function _filterConsole(method) {
+    const original = self.console[method].bind(self.console);
+    self.console[method] = function(...args) {
+        if (args.length === 1 && typeof args[0] === 'string' && _OCR_NOISE.test(args[0])) {
+            return;
+        }
+        original(...args);
+    };
+}
+_filterConsole('warn');
+_filterConsole('log');
+
 let enginePromise = null;
 
 // Rebuild a transferable {width,height,data} into a real ImageData so it can be drawn onto a canvas.

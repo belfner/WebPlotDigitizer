@@ -13,8 +13,9 @@ are reproducible from repo state. Regenerate with:
 uv run --with matplotlib --with numpy generate_demo_plots.py
 ```
 
-The script writes files named `NN_descriptor.png`; rename the outputs to the
-hyphenated names below when refreshing the embedded copies.
+The script writes `NN_descriptor.png` files into an `example-renders/generated/`
+folder next to itself; rename those outputs to the hyphenated names below when
+refreshing the embedded copies.
 
 | Image | Algorithm | Scenario shown |
 | --- | --- | --- |

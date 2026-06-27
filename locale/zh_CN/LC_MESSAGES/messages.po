@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version:  WebPlotDigitizer\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-06-26 01:51-0400\n"
+"POT-Creation-Date: 2026-06-26 21:47-0400\n"
 "PO-Revision-Date: 2024-03-18 21:06+0800\n"
 "Last-Translator: nkh0472 <nkh0472@hotmail.com>\n"
 "Language: zh_CN\n"
@@ -67,7 +67,7 @@ msgid "About WebPlotDigitizer"
 msgstr "关于 WebPlotDigitizer"
 
 #: templates/_menubar.html:42 templates/_menubar.html:44
-#: templates/_sidebars.html:229
+#: templates/_sidebars.html:275
 msgid "User Manual"
 msgstr "用户手册"
 
@@ -107,8 +107,8 @@ msgstr ""
 #: templates/_popups.html:335 templates/_popups.html:346
 #: templates/_popups.html:356 templates/_popups.html:367
 #: templates/_popups.html:399 templates/_popups.html:449
-#: templates/_popups.html:520 templates/_popups.html:536
-#: templates/_popups.html:561 templates/_strings.html:95
+#: templates/_popups.html:522 templates/_popups.html:538
+#: templates/_popups.html:563 templates/_strings.html:105
 msgid "Cancel"
 msgstr "取消"
 
@@ -158,7 +158,7 @@ msgstr ""
 msgid "WebPlotDigitizer repository"
 msgstr ""
 
-#: templates/_popups.html:90 templates/_popups.html:534
+#: templates/_popups.html:90 templates/_popups.html:536
 #: templates/_sidebars.html:86
 msgid "Run"
 msgstr "运行"
@@ -174,8 +174,8 @@ msgstr "摄像头拍照"
 
 #: templates/_popups.html:107 templates/_popups.html:279
 #: templates/_popups.html:292 templates/_popups.html:306
-#: templates/_popups.html:379 templates/_popups.html:546
-#: templates/_strings.html:94
+#: templates/_popups.html:379 templates/_popups.html:548
+#: templates/_strings.html:104
 msgid "OK"
 msgstr "确认"
 
@@ -184,7 +184,7 @@ msgstr "确认"
 msgid "Acquired Data"
 msgstr "采集数据"
 
-#: templates/_popups.html:130 templates/_strings.html:69
+#: templates/_popups.html:130 templates/_strings.html:79
 #: templates/_tree.html:72
 msgid "Dataset"
 msgstr "数据集"
@@ -401,7 +401,7 @@ msgstr "数据点数"
 msgid "Override Point Values"
 msgstr "覆盖值"
 
-#: templates/_popups.html:294 templates/_sidebars.html:184
+#: templates/_popups.html:294 templates/_sidebars.html:230
 msgid "Clear"
 msgstr "清除"
 
@@ -496,7 +496,8 @@ msgstr ""
 msgid "Relabel"
 msgstr ""
 
-#: templates/_popups.html:397 templates/_sidebars.html:219
+#: templates/_popups.html:397 templates/_sidebars.html:141
+#: templates/_sidebars.html:265
 msgid "Reset"
 msgstr "重置"
 
@@ -530,11 +531,11 @@ msgid ""
 "-1. The process would repeat for the next set of points."
 msgstr ""
 
-#: templates/_popups.html:434 templates/_strings.html:102
+#: templates/_popups.html:434 templates/_strings.html:112
 msgid "Group"
 msgstr "编组"
 
-#: templates/_popups.html:437 templates/_strings.html:104
+#: templates/_popups.html:437 templates/_strings.html:114
 msgid "Primary Group"
 msgstr "主要组"
 
@@ -542,7 +543,7 @@ msgstr "主要组"
 msgid "Add New Group"
 msgstr ""
 
-#: templates/_popups.html:448 templates/_popups.html:561
+#: templates/_popups.html:448 templates/_popups.html:563
 msgid "Save"
 msgstr ""
 
@@ -571,8 +572,8 @@ msgstr ""
 msgid "Map (Scale Bar)"
 msgstr ""
 
-#: templates/_popups.html:463 templates/_strings.html:77
-#: templates/_strings.html:91 templates/_tree.html:30
+#: templates/_popups.html:463 templates/_strings.html:87
+#: templates/_strings.html:101 templates/_tree.html:30
 msgid "Image"
 msgstr "像素图"
 
@@ -625,11 +626,16 @@ msgstr ""
 msgid "Calibrate"
 msgstr "未经标定的数据集！"
 
-#: templates/_popups.html:526
+#: templates/_popups.html:519
+#, fuzzy
+msgid "Auto-detect"
+msgstr "检测"
+
+#: templates/_popups.html:528
 msgid "AI Assist (Experimental)"
 msgstr ""
 
-#: templates/_popups.html:527
+#: templates/_popups.html:529
 msgid ""
 "AI assist is an experimental feature that uses state-of-the-art "
 "multimodal AI models on your image to auto detect axes information and "
@@ -637,43 +643,43 @@ msgid ""
 "will be added soon."
 msgstr ""
 
-#: templates/_popups.html:528
+#: templates/_popups.html:530
 msgid "Click run to attempt auto-generating Axes and Datasets for your image."
 msgstr ""
 
-#: templates/_popups.html:530
+#: templates/_popups.html:532
 msgid "Quota used:"
 msgstr ""
 
-#: templates/_popups.html:541
+#: templates/_popups.html:543
 msgid "Custom X Values"
 msgstr ""
 
-#: templates/_popups.html:542
+#: templates/_popups.html:544
 msgid "Specify X values for data extraction, for example"
 msgstr ""
 
-#: templates/_popups.html:550
+#: templates/_popups.html:552
 msgid "Preferences"
 msgstr ""
 
-#: templates/_popups.html:552
+#: templates/_popups.html:554
 msgid "Language"
 msgstr ""
 
-#: templates/_popups.html:554
+#: templates/_popups.html:556
 msgid "English"
 msgstr ""
 
-#: templates/_popups.html:555
+#: templates/_popups.html:557
 msgid "Simplified Chinese"
 msgstr ""
 
-#: templates/_popups.html:559
+#: templates/_popups.html:561
 msgid "Note: You may need to hard-reload this page after saving changes"
 msgstr ""
 
-#: templates/_popups.html:559
+#: templates/_popups.html:561
 msgid "see how"
 msgstr ""
 
@@ -717,11 +723,11 @@ msgid ""
 "rectangle-select and value-override tools."
 msgstr ""
 
-#: templates/_sidebars.html:41 templates/_sidebars.html:239
+#: templates/_sidebars.html:41 templates/_sidebars.html:285
 msgid "Undo"
 msgstr "撤销"
 
-#: templates/_sidebars.html:42 templates/_sidebars.html:240
+#: templates/_sidebars.html:42 templates/_sidebars.html:286
 msgid "Redo"
 msgstr "重做"
 
@@ -729,35 +735,40 @@ msgstr "重做"
 msgid "Automatic Extraction"
 msgstr "自动提取"
 
-#: templates/_sidebars.html:46 templates/_sidebars.html:182
+#: templates/_sidebars.html:46 templates/_sidebars.html:111
+#: templates/_sidebars.html:228
 msgid "Mask"
 msgstr "蒙板"
 
-#: templates/_sidebars.html:46 templates/_sidebars.html:183
+#: templates/_sidebars.html:46 templates/_sidebars.html:112
+#: templates/_sidebars.html:229
 msgid "Box"
 msgstr "方块"
 
-#: templates/_sidebars.html:46
+#: templates/_sidebars.html:46 templates/_sidebars.html:112
 msgid "Pen"
 msgstr "画笔"
 
-#: templates/_sidebars.html:46
+#: templates/_sidebars.html:46 templates/_sidebars.html:112
 msgid "Erase"
 msgstr "擦除"
 
-#: templates/_sidebars.html:46 templates/_sidebars.html:185
+#: templates/_sidebars.html:46 templates/_sidebars.html:112
+#: templates/_sidebars.html:231
 msgid "View"
 msgstr "显示"
 
 #: templates/_sidebars.html:48 templates/_sidebars.html:51
+#: templates/_sidebars.html:115 templates/_sidebars.html:118
 msgid "Width"
 msgstr "宽度"
 
-#: templates/_sidebars.html:48
+#: templates/_sidebars.html:48 templates/_sidebars.html:115
 msgid "Erase All"
 msgstr "全部清除"
 
-#: templates/_sidebars.html:54 templates/_sidebars.html:189
+#: templates/_sidebars.html:54 templates/_sidebars.html:124
+#: templates/_sidebars.html:235
 msgid "Color"
 msgstr "颜色"
 
@@ -765,22 +776,22 @@ msgstr "颜色"
 msgid "Pick a color from the image"
 msgstr ""
 
-#: templates/_sidebars.html:60
+#: templates/_sidebars.html:60 templates/_sidebars.html:129
 #, fuzzy
 msgid "Foreground"
 msgstr "前景色"
 
-#: templates/_sidebars.html:61
+#: templates/_sidebars.html:61 templates/_sidebars.html:130
 #, fuzzy
 msgid "Background"
 msgstr "背景模式"
 
-#: templates/_sidebars.html:65 templates/_strings.html:73
-#: templates/_tree.html:65 templates/_tree.html:87
+#: templates/_sidebars.html:65 templates/_sidebars.html:134
+#: templates/_strings.html:83 templates/_tree.html:65 templates/_tree.html:87
 msgid "Distance"
 msgstr "距离"
 
-#: templates/_sidebars.html:66
+#: templates/_sidebars.html:66 templates/_sidebars.html:135
 msgid "Filter Colors"
 msgstr "颜色过滤"
 
@@ -804,169 +815,204 @@ msgstr "覆盖"
 msgid "Override Values"
 msgstr "覆盖值"
 
+#: templates/_sidebars.html:109
+#, fuzzy
+msgid "Auto-Calibrate Axes"
+msgstr "未经标定的数据集！"
+
 #: templates/_sidebars.html:110
-msgid "RGB"
+msgid ""
+"Box-select or paint over the plot axes and tick labels, then click "
+"Detect. Review the proposed points, click Apply, then adjust and "
+"Calibrate as usual."
 msgstr ""
 
-#: templates/_sidebars.html:119
-msgid "Dominant Colors"
-msgstr "主色"
+#: templates/_sidebars.html:122
+msgid "Use color (limit the mask to a chosen axis color)"
+msgstr ""
 
 #: templates/_sidebars.html:125
-msgid "Edit Image"
-msgstr "编辑图像"
+msgid "Pick the axis color from the image"
+msgstr ""
 
-#: templates/_sidebars.html:134
-msgid "Measure Distances"
-msgstr "测量距离"
-
-#: templates/_sidebars.html:136
-msgid "Add Pair"
-msgstr "新增测量"
-
-#: templates/_sidebars.html:137
-msgid "Delete Pair"
-msgstr "删除测量"
-
-#: templates/_sidebars.html:143
-msgid "Measure Angles"
-msgstr "测量角度"
-
-#: templates/_sidebars.html:145
-msgid "Add Angle"
-msgstr "新增测量"
-
-#: templates/_sidebars.html:146
-msgid "Delete Angle"
-msgstr "删除测量"
-
-#: templates/_sidebars.html:152
-msgid "Measure Area/Perimeter"
-msgstr "测量面积/周长"
-
-#: templates/_sidebars.html:153
-msgid "Add Polygon"
-msgstr "添加多边形"
-
-#: templates/_sidebars.html:154
-msgid "Delete Polygon"
-msgstr "删除多边形"
-
-#: templates/_sidebars.html:156
-msgid "Press Enter or Esc key to complete the polygon"
-msgstr "按Enter或Esc键完成多边形"
-
-#: templates/_sidebars.html:162
-msgid "Measure Path"
-msgstr "测量路径"
-
-#: templates/_sidebars.html:164 templates/_sidebars.html:173
-msgid "Add Path"
-msgstr "新增测量"
-
-#: templates/_sidebars.html:165 templates/_sidebars.html:174
-msgid "Delete Path"
-msgstr "删除测量"
-
-#: templates/_sidebars.html:171
-msgid "Measure Closed Path"
-msgstr "测量闭环"
-
-#: templates/_sidebars.html:180
-msgid "Detect Grid"
-msgstr "检测网格"
-
-#: templates/_sidebars.html:190
-msgid "Pick"
-msgstr "拾取"
-
-#: templates/_sidebars.html:192
-msgid "Test"
-msgstr "测试"
-
-#: templates/_sidebars.html:195
-msgid "Background Mode"
-msgstr "背景模式"
-
-#: templates/_sidebars.html:199
-msgid "Horizontal"
-msgstr "横轴"
-
-#: templates/_sidebars.html:203
-msgid "X%"
-msgstr "X%"
-
-#: templates/_sidebars.html:207
-msgid "Vertical"
-msgstr "纵轴"
-
-#: templates/_sidebars.html:211
-msgid "Y%"
-msgstr "Y%"
-
-#: templates/_sidebars.html:217
+#: templates/_sidebars.html:139 templates/_sidebars.html:263
 msgid "Detect"
 msgstr "检测"
 
-#: templates/_sidebars.html:228
+#: templates/_sidebars.html:140
+msgid "Apply"
+msgstr ""
+
+#: templates/_sidebars.html:146
+msgid ""
+"Click an axis to add a tick; drag a tick to move it; Ctrl/Cmd-click or "
+"Delete removes it. Edit the values below, then click Apply."
+msgstr ""
+
+#: templates/_sidebars.html:148
+#, fuzzy
+msgid "Scan Labels"
+msgstr "页面标签"
+
+#: templates/_sidebars.html:156
+msgid "RGB"
+msgstr ""
+
+#: templates/_sidebars.html:165
+msgid "Dominant Colors"
+msgstr "主色"
+
+#: templates/_sidebars.html:171
+msgid "Edit Image"
+msgstr "编辑图像"
+
+#: templates/_sidebars.html:180
+msgid "Measure Distances"
+msgstr "测量距离"
+
+#: templates/_sidebars.html:182
+msgid "Add Pair"
+msgstr "新增测量"
+
+#: templates/_sidebars.html:183
+msgid "Delete Pair"
+msgstr "删除测量"
+
+#: templates/_sidebars.html:189
+msgid "Measure Angles"
+msgstr "测量角度"
+
+#: templates/_sidebars.html:191
+msgid "Add Angle"
+msgstr "新增测量"
+
+#: templates/_sidebars.html:192
+msgid "Delete Angle"
+msgstr "删除测量"
+
+#: templates/_sidebars.html:198
+msgid "Measure Area/Perimeter"
+msgstr "测量面积/周长"
+
+#: templates/_sidebars.html:199
+msgid "Add Polygon"
+msgstr "添加多边形"
+
+#: templates/_sidebars.html:200
+msgid "Delete Polygon"
+msgstr "删除多边形"
+
+#: templates/_sidebars.html:202
+msgid "Press Enter or Esc key to complete the polygon"
+msgstr "按Enter或Esc键完成多边形"
+
+#: templates/_sidebars.html:208
+msgid "Measure Path"
+msgstr "测量路径"
+
+#: templates/_sidebars.html:210 templates/_sidebars.html:219
+msgid "Add Path"
+msgstr "新增测量"
+
+#: templates/_sidebars.html:211 templates/_sidebars.html:220
+msgid "Delete Path"
+msgstr "删除测量"
+
+#: templates/_sidebars.html:217
+msgid "Measure Closed Path"
+msgstr "测量闭环"
+
+#: templates/_sidebars.html:226
+msgid "Detect Grid"
+msgstr "检测网格"
+
+#: templates/_sidebars.html:236
+msgid "Pick"
+msgstr "拾取"
+
+#: templates/_sidebars.html:238
+msgid "Test"
+msgstr "测试"
+
+#: templates/_sidebars.html:241
+msgid "Background Mode"
+msgstr "背景模式"
+
+#: templates/_sidebars.html:245
+msgid "Horizontal"
+msgstr "横轴"
+
+#: templates/_sidebars.html:249
+msgid "X%"
+msgstr "X%"
+
+#: templates/_sidebars.html:253
+msgid "Vertical"
+msgstr "纵轴"
+
+#: templates/_sidebars.html:257
+msgid "Y%"
+msgstr "Y%"
+
+#: templates/_sidebars.html:274
 msgid "Load Image"
 msgstr "导入图片"
 
-#: templates/_sidebars.html:235
+#: templates/_sidebars.html:281
 msgid "Image Editing"
 msgstr "图像编辑"
 
-#: templates/_sidebars.html:244
+#: templates/_sidebars.html:290
 msgid "Crop"
 msgstr "剪裁"
 
-#: templates/_sidebars.html:245
+#: templates/_sidebars.html:291
 msgid "Fix Perspective"
 msgstr "修复透视"
 
-#: templates/_sidebars.html:249
+#: templates/_sidebars.html:295
 msgid "Rotate"
 msgstr "旋转"
 
-#: templates/_sidebars.html:250
+#: templates/_sidebars.html:296
 msgid "?"
 msgstr "?"
 
-#: templates/_sidebars.html:482
+#: templates/_sidebars.html:528
 msgid "Chart Start Time (T_Start)"
 msgstr "图表开始时间（T_Start）"
 
-#: templates/_sidebars.html:486
+#: templates/_sidebars.html:532
 #, fuzzy
 msgid "Time (T_0)"
 msgstr "时间（T0）"
 
-#: templates/_sidebars.html:490
+#: templates/_sidebars.html:536
 #, fuzzy
 msgid "Rotation Time"
 msgstr "总旋转时间"
 
-#: templates/_sidebars.html:493
+#: templates/_sidebars.html:539
 msgid "1 Week (7 days)"
 msgstr "1周（7天）"
 
-#: templates/_sidebars.html:494
+#: templates/_sidebars.html:540
 msgid "1 Day (24 hours)"
 msgstr "1天（24小时）"
 
-#: templates/_sidebars.html:495
+#: templates/_sidebars.html:541
 msgid "1 Month"
 msgstr "1个月"
 
-#: templates/_sidebars.html:500
+#: templates/_sidebars.html:546
 msgid "Rotation Direction"
 msgstr "旋转方向"
 
-#: templates/_sidebars.html:503
+#: templates/_sidebars.html:549
 msgid "Anti-Clockwise"
 msgstr "逆时针方向"
 
-#: templates/_sidebars.html:504
+#: templates/_sidebars.html:550
 msgid "Clockwise"
 msgstr "顺时针"
 
@@ -1129,169 +1175,216 @@ msgid "Histogram"
 msgstr "直方图"
 
 #: templates/_strings.html:59
+msgid ""
+"Select an axis region first: box-select or paint over the axes and tick "
+"labels."
+msgstr ""
+
+#: templates/_strings.html:60
+msgid "Detecting axes, ticks, and labels..."
+msgstr ""
+
+#: templates/_strings.html:61
+msgid "Auto-calibration could not detect the axes. Adjust the mask and try again."
+msgstr ""
+
+#: templates/_strings.html:62
+msgid "Edit the detected ticks and values, then click Apply."
+msgstr ""
+
+#: templates/_strings.html:63
+msgid "Add at least two labeled ticks on each axis, then click Apply."
+msgstr ""
+
+#: templates/_strings.html:64
+msgid "Scanning tick labels..."
+msgstr ""
+
+#: templates/_strings.html:65
+#, fuzzy
+msgid "X axis"
+msgstr "坐标轴"
+
+#: templates/_strings.html:66
+#, fuzzy
+msgid "Y axis"
+msgstr "坐标轴"
+
+#: templates/_strings.html:67
+#, fuzzy
+msgid "Delete this tick"
+msgstr "删除测量"
+
+#: templates/_strings.html:68
+msgid ""
+"Partial result: not enough confident points to apply. Adjust the mask and"
+" retry."
+msgstr ""
+
+#: templates/_strings.html:69
 msgid "Specify Plot (Foreground) Color"
 msgstr "指定绘图（前景）颜色"
 
-#: templates/_strings.html:60
+#: templates/_strings.html:70
 msgid "Specify Background Color"
 msgstr "选定背景颜色"
 
-#: templates/_strings.html:61
+#: templates/_strings.html:71
 msgid "Please add some data before exporting."
 msgstr "导出数据前，请先采集数据点。"
 
-#: templates/_strings.html:62
+#: templates/_strings.html:72
 msgid "Error: No datasets to export!"
 msgstr "错误：没有数据集可以导出！"
 
-#: templates/_strings.html:63
+#: templates/_strings.html:73
 msgid "Add Dataset Error!"
 msgstr "添加数据集错误！"
 
-#: templates/_strings.html:64
+#: templates/_strings.html:74
 msgid "Rename Dataset Error!"
 msgstr "重命名数据集错误！"
 
-#: templates/_strings.html:65
+#: templates/_strings.html:75
 msgid "Dataset with this name already exists. Please pick a different name."
 msgstr "已存在相同名称的数据集。请选择一个不同的名称。"
 
-#: templates/_strings.html:66
+#: templates/_strings.html:76
 msgid "Rename Axes Error!"
 msgstr "重命名坐标轴错误！"
 
-#: templates/_strings.html:67
+#: templates/_strings.html:77
 msgid "Axes with this name already exists. Please pick a different name."
 msgstr "已存在相同名称的坐标轴，请选择一个不同的名称。"
 
-#: templates/_strings.html:68
+#: templates/_strings.html:78
 msgid "Specify a valid number of datasets to add!"
 msgstr "指定要添加的数据集个数的有效值！"
 
-#: templates/_strings.html:70 templates/_tree.html:55
+#: templates/_strings.html:80 templates/_tree.html:55
 msgid "Datasets"
 msgstr "数据集"
 
-#: templates/_strings.html:71 templates/_tree.html:63
+#: templates/_strings.html:81 templates/_tree.html:63
 msgid "Measurements"
 msgstr "测量"
 
-#: templates/_strings.html:72 templates/_tree.html:37 templates/_tree.html:47
+#: templates/_strings.html:82 templates/_tree.html:37 templates/_tree.html:47
 #: templates/_tree.html:74 templates/_tree.html:89 templates/_tree.html:106
 msgid "Axes"
 msgstr "坐标轴"
 
-#: templates/_strings.html:74 templates/_tree.html:66 templates/_tree.html:96
+#: templates/_strings.html:84 templates/_tree.html:66 templates/_tree.html:96
 msgid "Angle"
 msgstr "角度"
 
-#: templates/_strings.html:75 templates/_tree.html:67 templates/_tree.html:104
+#: templates/_strings.html:85 templates/_tree.html:67 templates/_tree.html:104
 msgid "Area/Perimeter"
 msgstr "面积/周长"
 
-#: templates/_strings.html:76
+#: templates/_strings.html:86
 msgid "XY"
 msgstr "XY"
 
-#: templates/_strings.html:78
+#: templates/_strings.html:88
 msgid "Bar"
 msgstr "条形图"
 
-#: templates/_strings.html:79
+#: templates/_strings.html:89
 msgid "Polar"
 msgstr "极坐标图"
 
-#: templates/_strings.html:80
+#: templates/_strings.html:90
 msgid "Ternary"
 msgstr "三元图"
 
-#: templates/_strings.html:81
+#: templates/_strings.html:91
 msgid "Map"
 msgstr "地图"
 
-#: templates/_strings.html:82
+#: templates/_strings.html:92
 msgid "Circular Chart"
 msgstr "循环制图"
 
-#: templates/_strings.html:83
+#: templates/_strings.html:93
 msgid "Project"
 msgstr "项目"
 
-#: templates/_strings.html:84
+#: templates/_strings.html:94
 msgid "Distance Measurements"
 msgstr "距离测量"
 
-#: templates/_strings.html:85
+#: templates/_strings.html:95
 msgid "Angle Measurements"
 msgstr "角度测量"
 
-#: templates/_strings.html:86
+#: templates/_strings.html:96
 msgid "Area Measurements"
 msgstr "面积测量"
 
-#: templates/_strings.html:87
+#: templates/_strings.html:97
 msgid "Uncalibrated Dataset!"
 msgstr "未经标定的数据集！"
 
-#: templates/_strings.html:88
+#: templates/_strings.html:98
 msgid "Assign an axes calibration to this dataset!"
 msgstr "为该数据集指定一个坐标轴标定！"
 
-#: templates/_strings.html:89
+#: templates/_strings.html:99
 msgid "Invalid Project!"
 msgstr "无效的项目！"
 
-#: templates/_strings.html:90
+#: templates/_strings.html:100
 msgid "Not a valid project file format!"
 msgstr "不是有效的项目文件格式！"
 
-#: templates/_strings.html:92
+#: templates/_strings.html:102
 #, fuzzy
 msgid "of"
 msgstr "/"
 
-#: templates/_strings.html:93
+#: templates/_strings.html:103
 msgid "Page"
 msgstr "页"
 
-#: templates/_strings.html:96
+#: templates/_strings.html:106
 msgid "Yes"
 msgstr "是"
 
-#: templates/_strings.html:97
+#: templates/_strings.html:107
 msgid "No"
 msgstr "否"
 
-#: templates/_strings.html:98
+#: templates/_strings.html:108
 msgid "Delete Point Tuple"
 msgstr "删除点元组"
 
-#: templates/_strings.html:99
+#: templates/_strings.html:109
 msgid "Delete all points in the tuple?"
 msgstr "是否删除元组中的所有点？"
 
-#: templates/_strings.html:100 templates/_strings.html:103
+#: templates/_strings.html:110 templates/_strings.html:113
 msgid "Delete Group"
 msgstr "删除编组"
 
-#: templates/_strings.html:101
+#: templates/_strings.html:111
 msgid "Delete all points in deleted groups?"
 msgstr "是否删除编组中的所有点？"
 
-#: templates/_strings.html:105
+#: templates/_strings.html:115
 msgid "new tuple"
 msgstr "添加新元组"
 
-#: templates/_strings.html:106
+#: templates/_strings.html:116
 #, fuzzy
 msgid "Template Matching"
 msgstr "设置日期格式"
 
-#: templates/_strings.html:107
+#: templates/_strings.html:117
 msgid "AI Assist"
 msgstr ""
 
-#: templates/_strings.html:108
+#: templates/_strings.html:118
 msgid "AI Assist failed! Please try again later."
 msgstr ""
 

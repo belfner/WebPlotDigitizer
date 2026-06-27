@@ -106,7 +106,7 @@
 </div>
 
 <div id="auto-calibration-sidebar" class="sidebar">
-    <p class="sidebar-title">{{ _("Auto-Calibrate Axes (beta)") }}</p>
+    <p class="sidebar-title">{{ _("Auto-Calibrate Axes") }}</p>
     <p class="sidebar-help">{{ _("Box-select or paint over the plot axes and tick labels, then click Detect. Review the proposed points, click Apply, then adjust and Calibrate as usual.") }}</p>
     <p>{{ _("Mask") }}
         <input type="button" value="{{ _("Box") }}" style="width:50px;" onclick="wpd.autoCalibrationController.markBox();" id="auto-cal-box-mask"><input type="button" value="{{ _("Pen") }}" style="width:45px;" onClick="wpd.autoCalibrationController.markPen();" id="auto-cal-pen-mask"><input type="button" value="{{ _("Erase") }}" style="width:50px;" onClick="wpd.autoCalibrationController.eraseMarks();" id="auto-cal-erase-mask"><input type="button" value="{{ _("View") }}" style="width:40px;" onclick="wpd.autoCalibrationController.viewMask();" id="auto-cal-view-mask" />

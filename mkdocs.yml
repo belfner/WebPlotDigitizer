@@ -20,5 +20,6 @@ markdown_extensions:
 nav:
   - Getting Started: index.md
   - Digitizing Charts: digitize.md
+  - Auto-Calibrating Axes: autocalibrate.md
   - Measurements: measurements.md
   - Handling Digitized Data: data.md

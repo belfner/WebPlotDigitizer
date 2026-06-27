@@ -244,14 +244,6 @@ wpd.autoCalibrationController = (function() {
 
         const runToken = ++session.runToken;
 
-        if (wpd.autoCalibration == null || typeof wpd.autoCalibration.run !== 'function') {
-            // Detection pipeline is not wired yet (lands in a later update). Masking and color
-            // selection already work; surface that clearly instead of failing silently.
-            _setStatus(wpd.gettext('auto-cal-detection-unavailable'));
-            _setApplyEnabled(false);
-            return;
-        }
-
         _setStatus(wpd.gettext('auto-cal-detecting'));
         _setApplyEnabled(false);
         wpd.busyNote.show();

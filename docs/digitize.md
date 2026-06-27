@@ -26,6 +26,10 @@ Use the magnifier view and the crosshair to place each reference point
 precisely. Accurate calibration is the single biggest factor in the accuracy of
 the extracted data.
 
+For 2D (X-Y) plots, [Auto-Calibrating Axes](autocalibrate.md) can detect the
+axes and read the tick-label values for you, so you review a proposed
+calibration instead of placing every point by hand.
+
 The reference points and options depend on the chart type:
 
 ### 2D (X-Y) Plot

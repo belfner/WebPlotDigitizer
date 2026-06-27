@@ -6,6 +6,7 @@ wpd.min.js
 wpd_node.js
 experiments
 dist
+site
 .venv
 locale/*/LC_MESSAGES/*.mo
 locale/messages.pot

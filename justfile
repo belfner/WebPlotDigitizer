@@ -27,8 +27,8 @@ install:
 build:
     PATH="{{venv_bin}}:$PATH" npm run build
 
-# Like `build`, but refresh the translation-catalog timestamps (POT-Creation-Date). Use when
-# cutting a release and committing the catalogs; everyday `just build` leaves them churn-free.
+# Like `build`, but re-extract strings and update the tracked .po catalogs. Use when cutting a
+# release and committing the catalogs; everyday `just build` leaves the .po files untouched.
 release:
     PATH="{{venv_bin}}:$PATH" WPD_RELEASE=1 npm run build
 

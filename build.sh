@@ -18,30 +18,29 @@ cat javascript/controllers/*.js >> combined.js
 cat javascript/services/*.js >> combined.js
 cat javascript/*.js >> combined.js
 
-echo "Update translation files..."
+# Re-extract translatable strings and update the tracked .po catalogs only on a release build
+# (WPD_RELEASE=1 or a --release argument; see `just release`). Everyday builds leave the .po
+# files untouched and compile them as-is, so editing templates never churns the catalogs.
 # messages.pot is a generated extraction template (no translations) and is gitignored.
-# Everyday builds pass --ignore-pot-creation-date so the tracked .po catalogs change only when
-# translatable strings change. A release build (WPD_RELEASE=1 or a --release argument; see
-# `just release`) omits the flag so the catalog POT-Creation-Date timestamps refresh.
-pot_date_flag="--ignore-pot-creation-date"
+is_release=0
 if [ "${WPD_RELEASE:-0}" = "1" ]; then
-    pot_date_flag=""
+    is_release=1
 fi
 for arg in "$@"; do
     if [ "$arg" = "--release" ]; then
-        pot_date_flag=""
+        is_release=1
     fi
 done
-if [ -z "$pot_date_flag" ]; then
-    echo "Release build: refreshing translation catalog timestamps."
+if [ "$is_release" = "1" ]; then
+    echo "Release build: re-extracting strings and updating translation catalogs..."
+    pybabel -v extract -F templates/babel.config -o ./locale/messages.pot ./templates
+    pybabel update -l en_US -d ./locale/ -i ./locale/messages.pot
+    pybabel update -l fr_FR -d ./locale/ -i ./locale/messages.pot
+    pybabel update -l zh_CN -d ./locale/ -i ./locale/messages.pot
+    pybabel update -l de_DE -d ./locale/ -i ./locale/messages.pot
+    pybabel update -l ja -d ./locale/ -i ./locale/messages.pot
+    pybabel update -l ru -d ./locale/ -i ./locale/messages.pot
 fi
-pybabel -v extract -F templates/babel.config -o ./locale/messages.pot ./templates
-pybabel update $pot_date_flag -l en_US -d ./locale/ -i ./locale/messages.pot
-pybabel update $pot_date_flag -l fr_FR -d ./locale/ -i ./locale/messages.pot
-pybabel update $pot_date_flag -l zh_CN -d ./locale/ -i ./locale/messages.pot
-pybabel update $pot_date_flag -l de_DE -d ./locale/ -i ./locale/messages.pot
-pybabel update $pot_date_flag -l ja -d ./locale/ -i ./locale/messages.pot
-pybabel update $pot_date_flag -l ru -d ./locale/ -i ./locale/messages.pot
 
 echo "Compiling translation catalogs..."
 pybabel compile -d ./locale/

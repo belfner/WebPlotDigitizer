@@ -29,6 +29,12 @@ QUnit.module(
             sinon.stub(wpd.graphicsWidget, "getRotatedCoordinates").callsFake(function(from, to, x, y) {
                 return {x: x, y: y};
             });
+            // point drags route through these viewport helpers; the viewport DOM is absent under
+            // karma, so clamp passes positions through and the cursor render is a no-op
+            sinon.stub(wpd.graphicsWidget, "clampImageToViewport").callsFake(function(x, y) {
+                return {x: x, y: y};
+            });
+            sinon.stub(wpd.graphicsWidget, "renderCursorAtImagePos");
             sinon.stub(wpd.alignAxes, "updateCalibrationCompletion");
             // stubs for the drag-preview drawn on the hover layer during a pair-drag
             sinon.stub(wpd.graphicsWidget, "resetHover");

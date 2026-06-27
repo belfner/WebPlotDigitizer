@@ -26,6 +26,12 @@ QUnit.module(
             sinon.stub(wpd.graphicsWidget, "forceHandlerRepaint");
             sinon.stub(wpd.graphicsWidget, "updateZoomOnEvent");
             sinon.stub(wpd.graphicsWidget, "updateZoomToImagePosn");
+            // point drags route through these viewport helpers; the viewport DOM is absent under
+            // karma, so clamp passes positions through and the cursor render is a no-op
+            sinon.stub(wpd.graphicsWidget, "clampImageToViewport").callsFake(function(x, y) {
+                return {x: x, y: y};
+            });
+            sinon.stub(wpd.graphicsWidget, "renderCursorAtImagePos");
             sinon.stub(wpd.dataPointCounter, "setCount");
             sinon.stub(wpd.events, "dispatch");
             this.undoManager = new wpd.UndoManager();

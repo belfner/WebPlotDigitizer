@@ -103,11 +103,18 @@ wpd.AxesCornersTool = class {
         this._addBefore = null;
         this._grabOffset = null;
 
-        // Calibration ignores Shift/Ctrl: placement is contextual (auto-grab a nearby point to drag
-        // it, otherwise add a new point). Alt forces a fresh placement even when near a point.
+        // Placement matches the cursor preview (_hoverOp), so a press does exactly what the hovered
+        // glyph promised: Ctrl/Cmd is inert (calibration points are never removable), Shift grabs a
+        // nearby point to drag but adds nothing on a miss, Alt forces a fresh placement even near a
+        // point, and a plain press auto-grabs a nearby point or otherwise adds one.
         const nearest = this._calibration.findNearestPoint(imagePos.x, imagePos.y, this._helpers.HIT_THRESHOLD);
+        const op = this._hoverOp(ev, nearest);
 
-        if (nearest >= 0 && this._mods.altKey !== true) {
+        if (op === 'noop') {
+            return; // Ctrl/Cmd anywhere, or Shift away from any point
+        }
+
+        if (op === 'move') {
             this._beginMove(nearest);
             // anchor the drag to the point: subsequent motion is a delta from here
             const p = this._calibration.getPoint(nearest);

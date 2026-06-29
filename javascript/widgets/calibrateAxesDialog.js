@@ -58,12 +58,14 @@ wpd.calibrateAxesDialog = (function() {
     }
 
     function _updateAutoDetectVisibility(itemId) {
-        // Auto-detect is an XY-only assist; show its button only when the XY axes type is selected.
+        // Auto-detect assist is available for XY and bar charts; show its button for those types only.
         const $btn = document.getElementById("calibrate-axes-autodetect-btn");
         if ($btn === null) {
             return;
         }
-        $btn.style.display = (_getChartType(itemId) === "xy") ? "inline" : "none";
+        const chartType = _getChartType(itemId);
+        const supported = chartType === "xy" || chartType === "bar";
+        $btn.style.display = supported ? "inline" : "none";
     }
 
     function _onSelect(ev) {
@@ -103,7 +105,12 @@ wpd.calibrateAxesDialog = (function() {
 
     function autoDetect() {
         wpd.popup.close(dialogId);
-        wpd.autoCalibrationController.openForXYCalibration();
+        const chartType = _getChartType($selectedItem.id);
+        if (chartType === "bar") {
+            wpd.autoCalibrationController.openForBarCalibration();
+        } else {
+            wpd.autoCalibrationController.openForXYCalibration();
+        }
     }
 
     return {

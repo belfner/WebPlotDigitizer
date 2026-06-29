@@ -509,6 +509,157 @@ wpd.autoCalibration.run = (function() {
         };
     };
 
+    // ----- Bar charts: single value-axis variant -----------------------------------------------
+    // A bar plot has exactly one numeric value axis (the other axis is categorical). The detection
+    // pipeline still finds both axis rules and their ticks, but only the value axis is calibrated. The
+    // review restricts editing to that axis; these helpers infer the default value axis, gate Apply,
+    // and reduce the labeled value-axis ticks to the two BarAxes calibration points P1/P2.
+
+    // Labeled (axis-coordinate, value, source tick) entries on one axis, in tick-list order.
+    function _labeledEntries(ticks, axisKey) {
+        const coord = (px) => (axisKey === 'x' ? px.x : px.y);
+        const entries = [];
+        (ticks || []).forEach((tick) => {
+            const v = parseValue(tick.value);
+            if (v === null) {
+                return;
+            }
+            entries.push({
+                t: coord(tick.px),
+                value: v,
+                tick: tick
+            });
+        });
+        return entries;
+    }
+
+    // Default value axis for a bar review: the axis with more numeric labels. This is a LOOSE signal
+    // (parseValue falls back to parseFloat, so numeric-looking categories like years or "1st" count),
+    // so it is only a weak default. Ties favor 'y' (vertical bars, value on Y, are the common case).
+    // The manual Value-axis switch in the review is authoritative.
+    wpd.autoCalibration.inferValueAxis = function(review) {
+        const xCount = _labeledEntries(review.getTicks('x'), 'x').length;
+        const yCount = _labeledEntries(review.getTicks('y'), 'y').length;
+        return xCount > yCount ? 'x' : 'y';
+    };
+
+    // Number of labeled ticks on the chosen value axis and whether Apply is ready (a robust line fit
+    // needs at least two labeled value-axis ticks). Bar analogue of reviewFitStatus.
+    wpd.autoCalibration.reviewFitStatusBar = function(review, valueAxis) {
+        const axisKey = valueAxis === 'x' ? 'x' : 'y';
+        const count = _labeledEntries(review.getTicks(axisKey), axisKey).length;
+        return {
+            valueAxis: axisKey,
+            count: count,
+            ok: count >= 2,
+            ready: count >= 2
+        };
+    };
+
+    // Reduce the labeled value-axis ticks to the two BarAxes calibration points. P1 carries the lowest
+    // value, P2 the highest; the points are ORDERED BY VALUE (not by pixel coordinate) because
+    // BarAxes.calibrate infers bar orientation/direction from the P1->P2 vector, and BarExtractionAlgo
+    // uses that direction to pick which bar edge to measure. Each point's value-axis coordinate is the
+    // inverse fit at its clean value (so it lies on the least-squares model); its off-axis coordinate
+    // is taken from the source tick so the point sits on the detected axis rule.
+    wpd.autoCalibration.buildBarSuggestionFromReview = function(review, valueAxis) {
+        const solver = wpd.autoCalibration.calibrationSolver;
+        const axisKey = valueAxis === 'x' ? 'x' : 'y';
+        const entries = _labeledEntries(review.getTicks(axisKey), axisKey);
+
+        const partial = {
+            status: 'partial',
+            calibrationPoints: [],
+            scale: null,
+            rotated: false
+        };
+
+        if (entries.length < 2) {
+            return partial;
+        }
+
+        const pairs = entries.map((e) => ({
+            t: e.t,
+            value: e.value
+        }));
+        const fit = solver.solveAxis(pairs);
+        if (fit == null || fit.status !== 'ok') {
+            return partial;
+        }
+
+        // Restrict the P1/P2 candidates to the fit's inliers (matched back by axis coordinate). A
+        // RANSAC-rejected OCR outlier with an extreme value must not become an endpoint, since
+        // pixelAt would then extrapolate that rejected value into a bad calibration point.
+        const inlierTs = {};
+        (fit.inliers || []).forEach((pt) => {
+            inlierTs[pt.t] = true;
+        });
+        const inlierEntries = entries.filter((e) => inlierTs[e.t] === true);
+        if (inlierEntries.length < 2) {
+            return partial;
+        }
+
+        let loEntry = inlierEntries[0];
+        let hiEntry = inlierEntries[0];
+        inlierEntries.forEach((e) => {
+            if (e.value < loEntry.value) {
+                loEntry = e;
+            }
+            if (e.value > hiEntry.value) {
+                hiEntry = e;
+            }
+        });
+        if (loEntry.value === hiEntry.value) {
+            return partial; // need two distinct inlier values to define the axis
+        }
+
+        const loVal = _round(loEntry.value);
+        const hiVal = _round(hiEntry.value);
+        const loT = solver.pixelAt(fit, loVal);
+        const hiT = solver.pixelAt(fit, hiVal);
+        if (loT == null || hiT == null) {
+            return partial;
+        }
+
+        // BarAxes log scaling applies Math.log to the raw bar value (bar.js), which only supports
+        // positive values (negatives give NaN, and pixelToData re-exponentiates to positive). Emit a
+        // log suggestion only when both endpoints are positive; otherwise hand the wizard a linear
+        // scale so calibration never degrades to NaN.
+        let scale = fit.scale;
+        if (scale === 'log' && (loVal <= 0 || hiVal <= 0)) {
+            scale = 'linear';
+        }
+
+        const mkPx = (t, entry) => (axisKey === 'x' ? {
+            x: t,
+            y: entry.tick.px.y
+        } : {
+            x: entry.tick.px.x,
+            y: t
+        });
+
+        const calibrationPoints = [{
+                slot: 'P1',
+                px: mkPx(loT, loEntry),
+                value: loVal
+            },
+            {
+                slot: 'P2',
+                px: mkPx(hiT, hiEntry),
+                value: hiVal
+            }
+        ];
+
+        return {
+            status: 'ok',
+            valueAxis: axisKey,
+            calibrationPoints: calibrationPoints,
+            scale: scale,
+            rotated: false,
+            axisFit: fit
+        };
+    };
+
     // Exposed for unit tests.
     wpd.autoCalibration.parseReviewValue = parseValue;
 })();

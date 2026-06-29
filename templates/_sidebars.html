@@ -143,11 +143,22 @@
     <p id="auto-cal-status" class="sidebar-help"></p>
     <div id="auto-cal-review-container" style="display:none;">
         <hr />
-        <p class="sidebar-help">{{ _("Click an axis to add a tick; drag a tick to move it; Ctrl/Cmd-click or Delete removes it. Edit the values below, then click Apply.") }}</p>
-        <p align="center">
-            <input type="button" value="{{ _("Scan Labels") }}" id="auto-cal-scan-btn" style="width:110px;" onclick="wpd.autoCalibrationController.rescanLabels();" />
-        </p>
-        <div id="auto-cal-tick-table-container"></div>
+        <div id="auto-cal-tick-review">
+            <p class="sidebar-help">{{ _("Click an axis to add a tick; drag a tick to move it; Ctrl/Cmd-click or Delete removes it. Edit the values below, then click Apply.") }}</p>
+            <div id="auto-cal-value-axis-container" style="display:none;">
+                <p>{{ _("Value axis") }}:
+                    <select id="auto-cal-value-axis-select" onchange="wpd.autoCalibrationController.setValueAxis(this.value);">
+                        <option value="y">{{ _("Vertical (Y)") }}</option>
+                        <option value="x">{{ _("Horizontal (X)") }}</option>
+                    </select>
+                </p>
+                <p class="sidebar-help">{{ _("Bar charts have one numeric value axis. The highlighted axis is calibrated; switch if the wrong one was chosen.") }}</p>
+            </div>
+            <p align="center">
+                <input type="button" value="{{ _("Scan Labels") }}" id="auto-cal-scan-btn" style="width:110px;" onclick="wpd.autoCalibrationController.rescanLabels();" />
+            </p>
+            <div id="auto-cal-tick-table-container"></div>
+        </div>
     </div>
 </div>
 

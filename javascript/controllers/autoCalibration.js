@@ -81,11 +81,19 @@ wpd.autoCalibrationController = (function() {
         }
     }
 
-    function openForXYCalibration() {
+    function _isBar() {
+        return session !== null && session.mode === 'bar';
+    }
+
+    // Shared session setup for every supported chart type. mode ('xy' | 'bar') selects the review and
+    // apply variant; the mask/color/detect flow is identical (both need the full axis detection).
+    function _openSession(mode) {
         // Discard any prior session before starting a fresh one.
         teardown();
 
         session = {
+            mode: mode,
+            valueAxis: 'y', // bar only: which detected axis is the numeric value axis
             detector: new wpd.AutoDetectionData({
                 useColorFilter: false
             }),
@@ -106,7 +114,16 @@ wpd.autoCalibrationController = (function() {
         });
         _clearPressedStates();
         _setApplyEnabled(false);
+        _updateValueAxisVisibility();
         _setStatus(wpd.gettext('auto-cal-select-region'));
+    }
+
+    function openForXYCalibration() {
+        _openSession('xy');
+    }
+
+    function openForBarCalibration() {
+        _openSession('bar');
     }
 
     // ---- Mask controls (delegate to the shared mask tools, targeting the transient detector) ----
@@ -210,15 +227,10 @@ wpd.autoCalibrationController = (function() {
         if (maskToolActive) {
             wpd.dataMask.grabMask(session.detector);
         }
-        // With no mask drawn the whole image is the region: the mask-only path extracts dark strokes
-        // from the full image so the user can jump straight to detection. The color-filter path needs a
-        // drawn region to bound the filtered foreground, so it still asks for one.
-        const noMask = session.detector.mask == null || session.detector.mask.size === 0;
-        if (noMask && session.detector.useColorFilter === true) {
-            _setStatus(wpd.gettext('auto-cal-select-region'));
-            _setApplyEnabled(false);
-            return;
-        }
+        // With no mask drawn the whole image is the region, for both paths: the dark-stroke path scans
+        // the full image, and the color-filter path filters the full image (generateBinaryData falls
+        // through to generateBinaryDataUsingFullImage when the mask is empty). Masking only narrows the
+        // region; it is never required to start detection.
 
         // Tear down any active tool and overlay (mask or color preview) and clear the data layer so a
         // later re-run cannot scan a stale overlay as the mask.
@@ -240,6 +252,7 @@ wpd.autoCalibrationController = (function() {
         session.imageData = imageData;
         session.detector.imageWidth = imageSize.width;
         session.detector.imageHeight = imageSize.height;
+
         session.detector.generateBinaryData(imageData);
 
         const runToken = ++session.runToken;
@@ -289,13 +302,58 @@ wpd.autoCalibrationController = (function() {
         session.review = new wpd.AutoCalibrationReview(suggestion);
         session.axisResult = suggestion.axisResult;
 
-        wpd.graphicsWidget.setRepainter(new wpd.AutoCalibrationRepainter(session.review));
-        wpd.graphicsWidget.setTool(new wpd.AutoCalibrationEditTool(session.review, _onReviewChanged));
-        wpd.graphicsWidget.forceHandlerRepaint();
+        // Bar charts calibrate one numeric value axis. Seed a weak default (the more-numeric axis) from
+        // the OCR'd labels; the user confirms or flips it with the value-axis switch.
+        if (_isBar()) {
+            session.valueAxis = wpd.autoCalibration.inferValueAxis(session.review);
+        }
+
+        _installReviewTools();
 
         _showReviewContainer(true);
+        _updateValueAxisVisibility();
         _renderTickTable();
         _updateFitStatus();
+    }
+
+    // (Re)install the canvas overlay + edit tool for the current review. In bar mode both are confined
+    // to the value axis so the categorical axis is shown faint and cannot be edited.
+    function _installReviewTools() {
+        const valueAxis = _isBar() ? session.valueAxis : null;
+        wpd.graphicsWidget.setRepainter(new wpd.AutoCalibrationRepainter(session.review, valueAxis));
+        wpd.graphicsWidget.setTool(
+            new wpd.AutoCalibrationEditTool(session.review, _onReviewChanged, valueAxis));
+        wpd.graphicsWidget.forceHandlerRepaint();
+    }
+
+    // Bar value-axis switch: flip which detected axis is the numeric value axis, rebuild the overlay,
+    // tool, and table to match, and re-evaluate Apply readiness. No-op outside bar mode.
+    function setValueAxis(axis) {
+        if (session === null || session.review === null || !_isBar()) {
+            return;
+        }
+        session.valueAxis = (axis === 'x') ? 'x' : 'y';
+        _installReviewTools();
+        _updateValueAxisVisibility();
+        _renderTickTable();
+        _updateFitStatus();
+    }
+
+    // Show the value-axis switch only in bar mode with an active review, and sync the select to the
+    // current value axis. The switch lives inside the review container, so it hides with it.
+    function _updateValueAxisVisibility() {
+        const $container = document.getElementById('auto-cal-value-axis-container');
+        if ($container === null) {
+            return;
+        }
+        const show = _isBar() && session !== null && session.review != null;
+        $container.style.display = show ? 'block' : 'none';
+        if (show) {
+            const $select = document.getElementById('auto-cal-value-axis-select');
+            if ($select !== null) {
+                $select.value = session.valueAxis;
+            }
+        }
     }
 
     // ---- Editable review ----
@@ -323,6 +381,19 @@ wpd.autoCalibrationController = (function() {
 
     function _updateFitStatus() {
         if (session === null || session.review === null) {
+            return;
+        }
+        if (_isBar()) {
+            const barStatus = wpd.autoCalibration.reviewFitStatusBar(session.review, session.valueAxis);
+            const axisLabel = session.valueAxis === 'x' ?
+                wpd.gettext('auto-cal-x-axis') : wpd.gettext('auto-cal-y-axis');
+            const barCounts = ' (' + axisLabel + ': ' + barStatus.count + ')';
+            if (barStatus.ready) {
+                _setStatus(wpd.gettext('auto-cal-review') + barCounts);
+            } else {
+                _setStatus(wpd.gettext('auto-cal-bar-need-labels') + barCounts);
+            }
+            _setApplyEnabled(barStatus.ready);
             return;
         }
         const status = wpd.autoCalibration.reviewFitStatus(session.review);
@@ -461,8 +532,15 @@ wpd.autoCalibrationController = (function() {
         }
         let table = document.createElement('table');
         table.style.width = '100%';
-        _appendAxisRows(table, 'x', wpd.gettext('auto-cal-x-axis'));
-        _appendAxisRows(table, 'y', wpd.gettext('auto-cal-y-axis'));
+        if (_isBar()) {
+            // Bar charts have a single numeric value axis; show only that axis's ticks.
+            const axis = session.valueAxis;
+            const label = axis === 'x' ? wpd.gettext('auto-cal-x-axis') : wpd.gettext('auto-cal-y-axis');
+            _appendAxisRows(table, axis, label);
+        } else {
+            _appendAxisRows(table, 'x', wpd.gettext('auto-cal-x-axis'));
+            _appendAxisRows(table, 'y', wpd.gettext('auto-cal-y-axis'));
+        }
         $container.appendChild(table);
         _highlightSelectedRow();
     }
@@ -563,26 +641,42 @@ wpd.autoCalibrationController = (function() {
     // ---- Apply ----
 
     function applyDetected() {
-        if (session === null || session.review === null) {
+        if (session === null) {
             return;
         }
-        const suggestion = wpd.autoCalibration.buildSuggestionFromReview(session.review);
+        if (session.review === null) {
+            return;
+        }
+        const suggestion = _isBar() ?
+            wpd.autoCalibration.buildBarSuggestionFromReview(session.review, session.valueAxis) :
+            wpd.autoCalibration.buildSuggestionFromReview(session.review);
         applySuggestion(suggestion);
     }
 
     function applySuggestion(suggestion) {
+        const mode = (session !== null) ? session.mode : 'xy';
+        let requiredPoints = 4;
+        if (mode === 'bar') {
+            requiredPoints = 2;
+        }
         if (suggestion == null || suggestion.status !== 'ok' ||
-            suggestion.calibrationPoints == null || suggestion.calibrationPoints.length !== 4) {
+            suggestion.calibrationPoints == null ||
+            suggestion.calibrationPoints.length !== requiredPoints) {
             return;
         }
 
-        // Hand off to the normal XY wizard with points and values prefilled. The transient detector
-        // is dropped; the user confirms/drags and commits with the standard Calibrate button.
-        // (PR3 captures the pre-apply model snapshot here for atomic undo.)
+        // Hand off to the normal calibration wizard with points (and values, when applicable)
+        // prefilled. The transient detector is dropped; the user confirms/drags and commits with the
+        // standard Calibrate button. The eventual align() records one atomic AutoCalibrationApplyAction
+        // for single-step undo.
         _clearPressedStates();
         _showReviewContainer(false);
         session = null;
-        wpd.alignAxes.startXYWithPrefill(suggestion);
+        if (mode === 'bar') {
+            wpd.alignAxes.startBarWithPrefill(suggestion);
+        } else {
+            wpd.alignAxes.startXYWithPrefill(suggestion);
+        }
     }
 
     function reset() {
@@ -618,6 +712,8 @@ wpd.autoCalibrationController = (function() {
 
     return {
         openForXYCalibration: openForXYCalibration,
+        openForBarCalibration: openForBarCalibration,
+        setValueAxis: setValueAxis,
         markBox: markBox,
         markPen: markPen,
         eraseMarks: eraseMarks,

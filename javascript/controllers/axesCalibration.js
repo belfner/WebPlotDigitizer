@@ -461,6 +461,42 @@ wpd.alignAxes = (function() {
         wpd.graphicsWidget.forceHandlerRepaint();
     }
 
+    // Bar auto-calibration entry: start the normal bar wizard with P1/P2 pixels and the value scale
+    // prefilled. The user lands in the standard AxesCornersTool confirm/drag UI and finishes with the
+    // same Calibrate button. P1/P2 arrive ordered by increasing value (the P1->P2 vector drives bar
+    // orientation), so they are added in P1,P2 order. rotated is left unchecked: orientation is
+    // inferred from the pixel vector, not forced.
+    function startBarWithPrefill(suggestion) {
+        initiatePlotAlignment("bar");
+        pendingAutoCalibrationApply = true;
+
+        const bySlot = {};
+        for (let cp of suggestion.calibrationPoints) {
+            bySlot[cp.slot] = cp;
+        }
+        const order = ['P1', 'P2'];
+        for (let slot of order) {
+            let cp = bySlot[slot];
+            // data values are set later from the sidebar inputs via setDataAt; only pixels matter here
+            calibration.addPoint(cp.px.x, cp.px.y, 0, 0);
+        }
+
+        document.getElementById('bar-axes-p1').value = bySlot['P1'].value;
+        document.getElementById('bar-axes-p2').value = bySlot['P2'].value;
+
+        const $scale = document.getElementById('bar-axes-scale');
+        if ($scale != null && suggestion.scale != null) {
+            $scale.value = suggestion.scale === 'log' ? 'log' : 'linear';
+        }
+        const $rotated = document.getElementById('bar-axes-rotated');
+        if ($rotated != null) {
+            $rotated.checked = false;
+        }
+
+        updateCalibrationCompletion();
+        wpd.graphicsWidget.forceHandlerRepaint();
+    }
+
     function getCalibrationPointPairs(axesTypeString) {
         switch (axesTypeString) {
             case "xy":
@@ -811,6 +847,7 @@ wpd.alignAxes = (function() {
     return {
         start: initiatePlotAlignment,
         startXYWithPrefill: startXYWithPrefill,
+        startBarWithPrefill: startBarWithPrefill,
         calibrationCompleted: calibrationCompleted,
         getCalibrationPointPairs: getCalibrationPointPairs,
         updateCalibrationCompletion: updateCalibrationCompletion,

@@ -24,8 +24,12 @@ var wpd = wpd || {};
 // highlighted. Coordinates are image-px, matching the AutoCalibrationReview model and the frame tool
 // handlers receive. Paired with wpd.AutoCalibrationEditTool, which mutates the same review.
 wpd.AutoCalibrationRepainter = class {
-    constructor(review) {
+    // valueAxis ('x' | 'y') restricts the overlay to a single calibrated axis for bar charts: that
+    // rule and its ticks are emphasized, the categorical rule is drawn faint and tickless. Omitted
+    // (null) for XY, where both rules and tick sets are drawn equally.
+    constructor(review, valueAxis) {
         this._review = review;
+        this._valueAxis = (valueAxis === 'x' || valueAxis === 'y') ? valueAxis : null;
         this.painterName = 'autoCalibrationRepainter';
     }
 
@@ -39,13 +43,26 @@ wpd.AutoCalibrationRepainter = class {
             return;
         }
 
-        wpd.graphicsHelper.drawLine(review.xAxis.p0, review.xAxis.p1, "rgba(0,120,255,0.8)");
-        wpd.graphicsHelper.drawLine(review.yAxis.p0, review.yAxis.p1, "rgba(0,120,255,0.8)");
+        if (this._valueAxis === null) {
+            wpd.graphicsHelper.drawLine(review.xAxis.p0, review.xAxis.p1, "rgba(0,120,255,0.8)");
+            wpd.graphicsHelper.drawLine(review.yAxis.p0, review.yAxis.p1, "rgba(0,120,255,0.8)");
 
-        // x-tick values read below the rule ('S' falls through drawPoint's default = below); y-tick
-        // values read to the left ('W').
-        this._drawTicks('x', 'S');
-        this._drawTicks('y', 'W');
+            // x-tick values read below the rule ('S' falls through drawPoint's default = below);
+            // y-tick values read to the left ('W').
+            this._drawTicks('x', 'S');
+            this._drawTicks('y', 'W');
+            return;
+        }
+
+        // Bar: emphasize the value axis, fade the categorical axis, and show only value-axis ticks so
+        // it is visually clear which axis the user is calibrating (and which one the switch flips to).
+        const strong = "rgba(0,120,255,0.8)";
+        const faint = "rgba(0,120,255,0.22)";
+        wpd.graphicsHelper.drawLine(review.xAxis.p0, review.xAxis.p1,
+            this._valueAxis === 'x' ? strong : faint);
+        wpd.graphicsHelper.drawLine(review.yAxis.p0, review.yAxis.p1,
+            this._valueAxis === 'y' ? strong : faint);
+        this._drawTicks(this._valueAxis, this._valueAxis === 'x' ? 'S' : 'W');
     }
 
     _drawTicks(axis, labelPosition) {
@@ -70,10 +87,13 @@ wpd.AutoCalibrationRepainter = class {
 // edits are transient (pre-calibration) and intentionally stay out of the global undo stack; the
 // committed Apply is the single undo step.
 wpd.AutoCalibrationEditTool = class {
-    constructor(review, onChange) {
+    // valueAxis ('x' | 'y') confines all editing (hit-test, add, move, delete, nudge) to one axis for
+    // bar charts so the categorical axis ticks can never be mutated. Omitted (null) for XY.
+    constructor(review, onChange, valueAxis) {
         this._review = review;
         this._onChange = (typeof onChange === 'function') ? onChange : function() {};
         this._helpers = wpd.pointEditHelpers;
+        this._valueAxis = (valueAxis === 'x' || valueAxis === 'y') ? valueAxis : null;
 
         this._mods = null;
         this._mode = 'noop'; // 'add' | 'move' | 'remove' | 'noop'
@@ -83,6 +103,18 @@ wpd.AutoCalibrationEditTool = class {
         this._moveIndex = -1;
         this._movingTick = null;
         this._grabOffset = null;
+    }
+
+    // Drop a hit on the non-value axis when editing is confined to one axis (bar mode), so categorical
+    // ticks are never grabbed, moved, or deleted.
+    _restrictHit(hit) {
+        if (hit == null) {
+            return null;
+        }
+        if (this._valueAxis !== null && hit.axis !== this._valueAxis) {
+            return null;
+        }
+        return hit;
     }
 
     onMouseDown(ev, pos, imagePos) {
@@ -98,7 +130,8 @@ wpd.AutoCalibrationEditTool = class {
         this._movingTick = null;
         this._grabOffset = null;
 
-        const hit = this._review.findNearest(imagePos.x, imagePos.y, this._helpers.HIT_THRESHOLD);
+        const hit = this._restrictHit(
+            this._review.findNearest(imagePos.x, imagePos.y, this._helpers.HIT_THRESHOLD));
 
         if (this._helpers.isRemoveModifier(this._mods)) {
             this._mode = 'remove';
@@ -125,9 +158,10 @@ wpd.AutoCalibrationEditTool = class {
             return;
         }
 
-        // add a new tick on the nearest axis rule
+        // add a new tick: on the value axis in bar mode, otherwise on the nearest axis rule
         this._mode = 'add';
-        const axis = this._review.nearestAxis(imagePos.x, imagePos.y);
+        const axis = this._valueAxis !== null ?
+            this._valueAxis : this._review.nearestAxis(imagePos.x, imagePos.y);
         this._review.addTick(axis, imagePos.x, imagePos.y);
         this._onChange('structure');
         wpd.graphicsWidget.forceHandlerRepaint();
@@ -145,7 +179,8 @@ wpd.AutoCalibrationEditTool = class {
     }
 
     onMouseMove(ev, pos, imagePos) {
-        const hit = this._review.findNearest(imagePos.x, imagePos.y, this._helpers.HIT_THRESHOLD);
+        const hit = this._restrictHit(
+            this._review.findNearest(imagePos.x, imagePos.y, this._helpers.HIT_THRESHOLD));
         if (ev.target != null && ev.target.style != null) {
             if (this._mode === 'move') {
                 ev.target.style.cursor = "grabbing";
@@ -180,7 +215,8 @@ wpd.AutoCalibrationEditTool = class {
             };
         }
         const mods = this._helpers.captureModifiers(modSource);
-        const hit = this._review.findNearest(imagePos.x, imagePos.y, this._helpers.HIT_THRESHOLD);
+        const hit = this._restrictHit(
+            this._review.findNearest(imagePos.x, imagePos.y, this._helpers.HIT_THRESHOLD));
         if (this._helpers.isRemoveModifier(mods)) {
             return hit != null ? {
                 mode: 'remove',
@@ -249,6 +285,9 @@ wpd.AutoCalibrationEditTool = class {
         const selected = this._review.selected;
         if (selected == null) {
             return;
+        }
+        if (this._valueAxis !== null && selected.axis !== this._valueAxis) {
+            return; // never nudge/delete a categorical-axis tick in bar mode
         }
         const axis = selected.axis;
         const index = selected.index;

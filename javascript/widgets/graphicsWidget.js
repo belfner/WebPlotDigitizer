@@ -1004,6 +1004,13 @@ wpd.graphicsWidget = (function() {
         $topCanvas.addEventListener("mouseup", onMouseUp, false);
         $topCanvas.addEventListener("mousedown", onMouseDown, false);
         $topCanvas.addEventListener("mouseout", onMouseOut, true);
+        // Let a tool opt into suppressing the browser context menu (mask brush/box use the right
+        // button to erase). Scoped to the canvas, so right-click elsewhere is unaffected.
+        $topCanvas.addEventListener("contextmenu", function(ev) {
+            if (activeTool != null && activeTool.suppressContextMenu === true) {
+                ev.preventDefault();
+            }
+        }, false);
         document.addEventListener("mousemove", onDocumentMouseMove, false);
         document.addEventListener("mouseup", onDocumentMouseUp, false);
 

@@ -31,10 +31,8 @@ wpd.autoCalibrationController = (function() {
         pen: 'auto-cal-pen-mask',
         erase: 'auto-cal-erase-mask',
         view: 'auto-cal-view-mask',
-        paintContainer: 'auto-cal-mask-paint-container',
-        eraseContainer: 'auto-cal-mask-erase-container',
-        paintThickness: 'auto-cal-paintThickness',
-        eraseThickness: 'auto-cal-eraseThickness',
+        brushContainer: 'auto-cal-mask-brush-container',
+        brushThickness: 'auto-cal-brushThickness',
         clear: 'auto-cal-clearMaskBtn'
     };
 
@@ -71,13 +69,9 @@ wpd.autoCalibrationController = (function() {
                 $el.classList.remove('pressed-button');
             }
         }
-        let $paint = document.getElementById(maskIds.paintContainer);
-        if ($paint !== null) {
-            $paint.style.display = 'none';
-        }
-        let $erase = document.getElementById(maskIds.eraseContainer);
-        if ($erase !== null) {
-            $erase.style.display = 'none';
+        let $brush = document.getElementById(maskIds.brushContainer);
+        if ($brush !== null) {
+            $brush.style.display = 'none';
         }
     }
 
@@ -128,11 +122,14 @@ wpd.autoCalibrationController = (function() {
 
     // ---- Mask controls (delegate to the shared mask tools, targeting the transient detector) ----
 
+    // The transient detector is torn down with the session, so its mask edits never go on the
+    // global undo stack (recordUndo: false).
     function markBox() {
         if (session === null) return;
         wpd.dataMask.markBox({
             autoDetector: session.detector,
-            ids: maskIds
+            ids: maskIds,
+            recordUndo: false
         });
     }
 
@@ -140,7 +137,8 @@ wpd.autoCalibrationController = (function() {
         if (session === null) return;
         wpd.dataMask.markPen({
             autoDetector: session.detector,
-            ids: maskIds
+            ids: maskIds,
+            recordUndo: false
         });
     }
 
@@ -148,7 +146,8 @@ wpd.autoCalibrationController = (function() {
         if (session === null) return;
         wpd.dataMask.eraseMarks({
             autoDetector: session.detector,
-            ids: maskIds
+            ids: maskIds,
+            recordUndo: false
         });
     }
 
@@ -163,7 +162,8 @@ wpd.autoCalibrationController = (function() {
     function clearMask() {
         if (session === null) return;
         wpd.dataMask.clearMask({
-            autoDetector: session.detector
+            autoDetector: session.detector,
+            recordUndo: false
         });
     }
 

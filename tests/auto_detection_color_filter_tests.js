@@ -156,6 +156,6 @@ QUnit.test("defaultMaskControlIds maps to the acquire-data sidebar ids", functio
     assert.strictEqual(ids.pen, 'pen-mask', "pen id");
     assert.strictEqual(ids.erase, 'erase-mask', "erase id");
     assert.strictEqual(ids.view, 'view-mask', "view id");
-    assert.strictEqual(ids.paintContainer, 'mask-paint-container', "paint container id");
-    assert.strictEqual(ids.eraseContainer, 'mask-erase-container', "erase container id");
+    assert.strictEqual(ids.brushContainer, 'mask-brush-container', "brush container id");
+    assert.strictEqual(ids.brushThickness, 'brushThickness', "brush thickness id");
 });

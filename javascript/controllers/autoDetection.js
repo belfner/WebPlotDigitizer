@@ -317,10 +317,8 @@ wpd.dataMask = (function() {
         pen: 'pen-mask',
         erase: 'erase-mask',
         view: 'view-mask',
-        paintContainer: 'mask-paint-container',
-        eraseContainer: 'mask-erase-container',
-        paintThickness: 'paintThickness',
-        eraseThickness: 'eraseThickness',
+        brushContainer: 'mask-brush-container',
+        brushThickness: 'brushThickness',
         clear: 'clearMaskBtn'
     };
 
@@ -346,13 +344,67 @@ wpd.dataMask = (function() {
         let maskData = new Set();
 
         for (let i = 0; i < maskDataPx.data.length; i += 4) {
+            // Yellow RGB identifies a masked pixel; the alpha check excludes pixels that erase
+            // (destination-out) zeroed out but whose RGB channels were left at yellow.
             if (maskDataPx.data[i] === 255 && maskDataPx.data[i + 1] === 255 &&
-                maskDataPx.data[i + 2] === 0) {
+                maskDataPx.data[i + 2] === 0 && maskDataPx.data[i + 3] > 0) {
                 maskData.add(i / 4);
             }
         }
 
         autoDetector.setMask(maskData);
+    }
+
+    // Re-render the active mask overlay from the detector model after an undo/redo restores it.
+    // Only acts when the data-mask painter is the active repainter: resetData() clears oriData
+    // and dispatches the active painter's onRedraw, so running it while a different painter (e.g.
+    // the grid mask) is active would re-grab the just-cleared layer and clobber that unrelated
+    // mask. When the data-mask view is not active the restored model is repainted later by
+    // MaskPainter.onAttach, so a no-op here is safe. The painter's own grab is suppressed across
+    // the resetData repaint so it repaints detector.mask instead of scanning the cleared canvas.
+    function renderMaskToCanvas() {
+        let repainter = wpd.graphicsWidget.getRepainter();
+        if (repainter == null || repainter.painterName !== 'dataMaskPainter') {
+            return;
+        }
+        repainter.preventGrab = true;
+        try {
+            wpd.graphicsWidget.resetData();
+        } finally {
+            repainter.preventGrab = false;
+        }
+    }
+
+    // A mask edit is undoable only when it targets the active dataset detector. Auto-calibration
+    // masks a transient detector that is torn down with the session; recording a global undo for
+    // it would let a later Ctrl+Z repaint a stale mask. Callers may also opt out via recordUndo.
+    function _shouldRecordUndo(detector, recordUndo) {
+        if (recordUndo === false) {
+            return false;
+        }
+        return detector === getActiveAutoDetectionData();
+    }
+
+    // Snapshot the resolved detector's current mask as an RLE blob, for a MaskEditAction's before
+    // state. Captured at gesture start, before any painting.
+    function snapshotMask(autoDetector) {
+        return wpd.maskToRle(resolveAutoDetectionData(autoDetector).mask);
+    }
+
+    // Record one mask gesture (brush stroke, box, or clear) as an undoable action. beforeRle is
+    // the snapshot from snapshotMask(); the after state is read from the detector model, which the
+    // caller has already flushed via grabMask. No-op edits (before === after) are not recorded.
+    function recordMaskEdit(autoDetector, beforeRle, recordUndo) {
+        let detector = resolveAutoDetectionData(autoDetector);
+        if (!_shouldRecordUndo(detector, recordUndo)) {
+            return;
+        }
+        let afterRle = wpd.maskToRle(detector.mask);
+        if (JSON.stringify(beforeRle) === JSON.stringify(afterRle)) {
+            return;
+        }
+        wpd.appData.getUndoManager().insertAction(
+            new wpd.MaskEditAction(detector, beforeRle, afterRle));
     }
 
     function grabMask(autoDetector) {
@@ -364,14 +416,23 @@ wpd.dataMask = (function() {
         wpd.graphicsWidget.setTool(tool);
     }
 
-    function markPen(options) {
-        let tool = new wpd.PenMaskTool(options || {});
+    function markBrush(options) {
+        let tool = new wpd.BrushMaskTool(options || {});
         wpd.graphicsWidget.setTool(tool);
     }
 
+    // Pen and Erase are the same brush tool with a different default mode; the un-prefixed button
+    // launches paint, the erase button launches erase. Right-button still flips per stroke.
+    function markPen(options) {
+        let opts = options || {};
+        opts.initialMode = 'paint';
+        markBrush(opts);
+    }
+
     function eraseMarks(options) {
-        let tool = new wpd.EraseMaskTool(options || {});
-        wpd.graphicsWidget.setTool(tool);
+        let opts = options || {};
+        opts.initialMode = 'erase';
+        markBrush(opts);
     }
 
     function viewMask(options) {
@@ -392,8 +453,12 @@ wpd.dataMask = (function() {
 
     function clearMask(options) {
         const opts = options || {};
+        // Snapshot before clearing so undo can restore the cleared mask. resetData + grab leaves
+        // the model empty (the re-grab scans the cleared canvas), which is the desired clear result.
+        let beforeRle = snapshotMask(opts.autoDetector);
         wpd.graphicsWidget.resetData();
         grabMask(opts.autoDetector);
+        recordMaskEdit(opts.autoDetector, beforeRle, opts.recordUndo);
     }
 
     return {
@@ -402,7 +467,11 @@ wpd.dataMask = (function() {
         resolveAutoDetectionData: resolveAutoDetectionData,
         grabMask: grabMask,
         grabMaskInto: grabMaskInto,
+        renderMaskToCanvas: renderMaskToCanvas,
+        snapshotMask: snapshotMask,
+        recordMaskEdit: recordMaskEdit,
         markBox: markBox,
+        markBrush: markBrush,
         markPen: markPen,
         eraseMarks: eraseMarks,
         viewMask: viewMask,

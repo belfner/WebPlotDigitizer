@@ -32,39 +32,11 @@ build:
 release:
     PATH="{{venv_bin}}:$PATH" WPD_RELEASE=1 npm run build
 
-# Assemble the deployable dist/ directory and build the docs, exactly as pages.yml does.
+# Assemble the deployable dist/ directory and build the docs via the shared assemble-dist.sh
+# script (the same script the Pages workflow runs). MKDOCS points at the venv copy so a missing
+# build env fails loudly here instead of falling back to a system mkdocs.
 dist: build
-    #!/usr/bin/env bash
-    set -euo pipefail
-    rm -rf {{dist}} && mkdir -p {{dist}}
-    cp index*.html {{dist}}/
-    cp wpd.min.js start.png favicon.ico LICENSE README.md CHANGES.md NOTICE.md {{dist}}/
-    cp -R styles images {{dist}}/
-    cp -R vendor {{dist}}/
-    mkdir -p {{dist}}/javascript/workers
-    cp javascript/workers/autoCalibrationOcrWorker.js {{dist}}/javascript/workers/
-    mkdir -p {{dist}}/node_modules/bootstrap-icons/font
-    cp node_modules/bootstrap-icons/font/bootstrap-icons.min.css {{dist}}/node_modules/bootstrap-icons/font/
-    cp -R node_modules/bootstrap-icons/font/fonts {{dist}}/node_modules/bootstrap-icons/font/
-    mkdir -p {{dist}}/node_modules/pdfjs-dist/build
-    cp node_modules/pdfjs-dist/build/pdf.min.mjs {{dist}}/node_modules/pdfjs-dist/build/
-    cp node_modules/pdfjs-dist/build/pdf.worker.min.mjs {{dist}}/node_modules/pdfjs-dist/build/
-    mkdir -p {{dist}}/node_modules/tarballjs
-    cp node_modules/tarballjs/tarball.js {{dist}}/node_modules/tarballjs/
-    repo_url="$(git config --get remote.origin.url || echo unknown)"
-    commit="$(git rev-parse HEAD || echo unknown)"
-    cat > {{dist}}/SOURCE.txt <<EOF
-    This hosted copy was built from:
-    ${repo_url} (commit ${commit})
-
-    Original upstream:
-    https://github.com/automeris-io/WebPlotDigitizer/tree/v5.3.0
-
-    License:
-    GNU AGPL v3 or later. See LICENSE.
-    EOF
-    touch {{dist}}/.nojekyll
-    {{venv_bin}}/mkdocs build --strict -d {{dist}}/docs
+    MKDOCS="{{venv_bin}}/mkdocs" ./assemble-dist.sh
 
 # Serve the assembled dist/ over HTTP (default port 8000, override: just serve 9000).
 serve port='8000':

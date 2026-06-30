@@ -25,19 +25,25 @@ fi
 echo "Assembling ${dist}/ ..."
 rm -rf "${dist}" && mkdir -p "${dist}"
 cp index*.html "${dist}/"
-cp wpd.min.js start.png favicon.ico LICENSE README.md CHANGES.md NOTICE.md "${dist}/"
+cp wpd.min.js start.png favicon.ico LICENSE README.md CHANGES.md NOTICE.md THIRD_PARTY_NOTICES.md "${dist}/"
 cp -R styles images "${dist}/"
 cp -R vendor "${dist}/"
+# Aggregated full license texts referenced by THIRD_PARTY_NOTICES.md (Apache-2.0, OFL-1.1, Leptonica).
+cp -R licenses "${dist}/"
 mkdir -p "${dist}/javascript/workers"
 cp javascript/workers/autoCalibrationOcrWorker.js "${dist}/javascript/workers/"
 mkdir -p "${dist}/node_modules/bootstrap-icons/font"
 cp node_modules/bootstrap-icons/font/bootstrap-icons.min.css "${dist}/node_modules/bootstrap-icons/font/"
 cp -R node_modules/bootstrap-icons/font/fonts "${dist}/node_modules/bootstrap-icons/font/"
+# Ship each bundled dependency's license alongside its code (MIT/Apache require the notice to travel).
+cp node_modules/bootstrap-icons/LICENSE "${dist}/node_modules/bootstrap-icons/"
 mkdir -p "${dist}/node_modules/pdfjs-dist/build"
 cp node_modules/pdfjs-dist/build/pdf.min.mjs "${dist}/node_modules/pdfjs-dist/build/"
 cp node_modules/pdfjs-dist/build/pdf.worker.min.mjs "${dist}/node_modules/pdfjs-dist/build/"
+cp node_modules/pdfjs-dist/LICENSE "${dist}/node_modules/pdfjs-dist/"
 mkdir -p "${dist}/node_modules/tarballjs"
 cp node_modules/tarballjs/tarball.js "${dist}/node_modules/tarballjs/"
+cp node_modules/tarballjs/LICENSE "${dist}/node_modules/tarballjs/"
 
 # Provenance line: CI passes the clickable commit URL via WPD_SOURCE_LINE; locally derive it from
 # the git remote and HEAD (matching the previous justfile behavior).
@@ -52,8 +58,8 @@ cat > "${dist}/SOURCE.txt" <<EOF
 This hosted copy was built from:
 ${source_line}
 
-Original upstream:
-https://github.com/automeris-io/WebPlotDigitizer/tree/v5.3.0
+Original upstream (v5.3.0, commit 3a3ecb11606945d0701c8a488777e6861be70056):
+https://github.com/automeris-io/WebPlotDigitizer/commit/3a3ecb11606945d0701c8a488777e6861be70056
 
 License:
 GNU AGPL v3 or later. See LICENSE.

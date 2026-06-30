@@ -10,3 +10,7 @@ site
 .venv
 locale/*/LC_MESSAGES/*.mo
 locale/messages.pot
+
+# Python build artifacts from renderHTML.py
+__pycache__/
+*.pyc

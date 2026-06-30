@@ -31,7 +31,7 @@ The WebPlotDigitizer frontend is distributed under the
 [`LICENSE`](LICENSE).
 
 - Modified source (this fork): https://github.com/belfner/WebPlotDigitizer
-- Original upstream: https://github.com/automeris-io/WebPlotDigitizer (tag `v5.3.0`)
+- Original upstream: https://github.com/automeris-io/WebPlotDigitizer (v5.3.0, commit [`3a3ecb1`](https://github.com/automeris-io/WebPlotDigitizer/commit/3a3ecb11606945d0701c8a488777e6861be70056))
 - Fork changes: [`CHANGES.md`](CHANGES.md)
 - Attribution and provenance: [`NOTICE.md`](NOTICE.md)
 

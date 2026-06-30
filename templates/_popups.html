@@ -192,7 +192,7 @@
     </ul>
     <p>&nbsp;</p>
     <p>This is an <b>unofficial</b> static deployment of the WebPlotDigitizer frontend (based on the AGPL v3 release tagged v5.3.0). It is maintained by belfner and is not affiliated with, endorsed by, or supported by Automeris LLC. The cloud backend and AI Assist are not available here.</p>
-    <p>Source code for this modified version: <a href="https://github.com/belfner/WebPlotDigitizer" target="_blank">https://github.com/belfner/WebPlotDigitizer</a></p>
+    <p>Source code for this modified version: <a href="https://github.com/belfner/WebPlotDigitizer" target="_blank">https://github.com/belfner/WebPlotDigitizer</a>. {% if build_commit %}This site was built from commit <a href="https://github.com/belfner/WebPlotDigitizer/commit/{{ build_commit }}" target="_blank">{{ build_commit_short }}</a> (also recorded in <a href="SOURCE.txt" target="_blank">SOURCE.txt</a>).{% else %}The exact commit this site was built from is recorded in <a href="SOURCE.txt" target="_blank">SOURCE.txt</a>.{% endif %} Bundled third-party components and their licenses are listed in <a href="THIRD_PARTY_NOTICES.md" target="_blank">THIRD_PARTY_NOTICES.md</a>.</p>
     <p>&nbsp;</p>
     <p align="center"><input type="button" value="{{ _("Close") }}" onclick="wpd.popup.close('helpWindow');"></p>
 </div>

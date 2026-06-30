@@ -57,6 +57,12 @@ upstream provides via the proprietary cloud backend:
   base (`javascript/controllers/actionBase.js`).
 - A cursor overlay that stays live across zoom, pan, and point placement
   (`javascript/widgets/graphicsWidget.js`).
+- **Zoom out past the image extents** (`javascript/widgets/graphicsWidget.js`,
+  `javascript/widgets/zoom.js`): the zoom-out floor and pan clamp use an "enlarged
+  bounds" (the image padded by a working margin) as the keep-in-view region, so the
+  view can drift into empty space around the image and points can be placed outside
+  `[0, imageW] x [0, imageH]`. The **Fit** button still frames the image only, and the
+  magnifier blanks (`wpd.zoomView.clear()`) when the cursor sits in the margin.
 
 ## UI and link changes
 

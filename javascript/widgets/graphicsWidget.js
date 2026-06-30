@@ -29,6 +29,7 @@
 
         flow: image -> scale -> canvas px -> rotate -> screen px
 */
+// Modified 2026-06-29 by belfner for zoom-out past image extents with enlarged keep-in-view bounds.
 var wpd = wpd || {};
 
 wpd.graphicsWidget = (function() {
@@ -88,6 +89,12 @@ wpd.graphicsWidget = (function() {
 
     const WHEEL_ZOOM_STEP = 1.2; // zoom multiplier per wheel notch
     const MAX_ZOOM_RATIO = 8; // upper bound on screen px per image px (tune as needed)
+
+    // Working margin around the image, as a fraction of each display dimension per
+    // side. The image padded by this margin forms the "enlarged bounds": the
+    // keep-in-view region the zoom-out floor and pan clamp use, so the view can
+    // drift into empty space around the image to place out-of-image points.
+    const MARGIN_FRACTION = 0.5;
 
     // Wheel zoom is coalesced into a single update per animation frame.
     let pendingZoomFactor = 1;
@@ -435,7 +442,7 @@ wpd.graphicsWidget = (function() {
 
         // delta 0 means re-render the current view (e.g. after a page switch)
         if (deltaDegrees === 0) {
-            zoomRatio = Math.max(zoomRatio, getContainZoomRatio());
+            zoomRatio = Math.max(zoomRatio, getMinZoomRatio());
             clampPan();
             render();
             return;
@@ -472,17 +479,46 @@ wpd.graphicsWidget = (function() {
         return Math.min(vp.w / dim.w, vp.h / dim.h);
     }
 
-    // Clamp the pan offset. On an axis where the image fits within the viewport,
-    // center the image (pan goes negative to inset it, leaving textured margins)
-    // and lock the axis. On an axis where the image overflows, clamp so no empty
-    // edge shows on that axis.
+    // Working margin per side in display-image px (half an image dimension each at
+    // MARGIN_FRACTION = 0.5), giving the enlarged keep-in-view bounds.
+    function getMargins() {
+        const dim = getDisplayDims();
+        return { x: dim.w * MARGIN_FRACTION, y: dim.h * MARGIN_FRACTION };
+    }
+
+    // Image dimensions padded by the working margin on all sides (display-image px).
+    function getEnlargedDims() {
+        const dim = getDisplayDims();
+        const m = getMargins();
+        return { w: dim.w + 2 * m.x, h: dim.h + 2 * m.y };
+    }
+
+    // Largest zoom ratio at which the whole enlarged region fits in the viewport.
+    // Acts as the zoom-out floor: at this level the image sits small and centered
+    // with margin all around - the working space for out-of-image points.
+    function getMinZoomRatio() {
+        const vp = getViewportDeviceSize();
+        const e = getEnlargedDims();
+        return Math.min(vp.w / e.w, vp.h / e.h);
+    }
+
+    // Clamp the pan offset against the enlarged keep-in-view bounds (image plus
+    // working margin). On an axis where the enlarged region fits in the viewport,
+    // center the image (equal margins on both sides) and lock the axis. On an axis
+    // where it overflows, allow the view to drift from the left/top margin edge
+    // (-margin) to the right/bottom margin edge (dim + margin - window).
     function clampPan() {
         const vp = getViewportDeviceSize();
         const dim = getDisplayDims();
-        const spanX = dim.w - vp.w / zoomRatio;
-        const spanY = dim.h - vp.h / zoomRatio;
-        panX = (spanX <= 0) ? spanX / 2 : Math.min(Math.max(panX, 0), spanX);
-        panY = (spanY <= 0) ? spanY / 2 : Math.min(Math.max(panY, 0), spanY);
+        const m = getMargins();
+        const winW = vp.w / zoomRatio;
+        const winH = vp.h / zoomRatio;
+        const spanX = (dim.w + 2 * m.x) - winW;
+        const spanY = (dim.h + 2 * m.y) - winH;
+        panX = (spanX <= 0) ? (dim.w - winW) / 2 :
+            Math.min(Math.max(panX, -m.x), dim.w + m.x - winW);
+        panY = (spanY <= 0) ? (dim.h - winH) / 2 :
+            Math.min(Math.max(panY, -m.y), dim.h + m.y - winH);
     }
 
     // Wheel zoom centered on the cursor. Events are accumulated and applied once
@@ -518,9 +554,9 @@ wpd.graphicsWidget = (function() {
         }
 
         const oldZoom = zoomRatio;
-        const containZoom = getContainZoomRatio();
-        const maxZoom = Math.max(containZoom, MAX_ZOOM_RATIO);
-        const newZoom = Math.max(containZoom, Math.min(oldZoom * factor, maxZoom));
+        const minZoom = getMinZoomRatio(); // zoom-out floor: enlarged bounds fit
+        const maxZoom = Math.max(getContainZoomRatio(), MAX_ZOOM_RATIO); // unchanged ceiling
+        const newZoom = Math.max(minZoom, Math.min(oldZoom * factor, maxZoom));
         if (newZoom === oldZoom) {
             return;
         }
@@ -536,14 +572,20 @@ wpd.graphicsWidget = (function() {
     }
 
     function zoomFit() {
-        // Contain the whole image in the viewport, centered.
+        // Contain the whole image in the viewport, centered on the image. Fit must
+        // frame the image only, not the enlarged bounds, so it sets image-centered
+        // pan directly rather than delegating to clampPan() (which clamps against
+        // the enlarged bounds and would leave a margin-range pan offset standing).
         zoomRatio = getContainZoomRatio();
-        clampPan();
+        const vp = getViewportDeviceSize();
+        const dim = getDisplayDims();
+        panX = (dim.w - vp.w / zoomRatio) / 2;
+        panY = (dim.h - vp.h / zoomRatio) / 2;
         render();
     }
 
     function setZoomRatio(zratio) {
-        zoomRatio = Math.max(zratio, getContainZoomRatio());
+        zoomRatio = Math.max(zratio, getMinZoomRatio());
         clampPan();
         render();
     }
@@ -880,12 +922,22 @@ wpd.graphicsWidget = (function() {
         // Magnifier shows the raw source image only. The data/overlay layer is
         // intentionally not read here: reading the just-modified data canvas back
         // on every point placement was a major source of placement lag.
-        const idata = oriImageCtx.getImageData(parseInt(ixmin, 10), parseInt(iymin, 10),
-            parseInt(ixmax - ixmin, 10), parseInt(iymax - iymin, 10));
+        const sx = parseInt(ixmin, 10);
+        const sy = parseInt(iymin, 10);
+        const sw = parseInt(ixmax - ixmin, 10);
+        const sh = parseInt(iymax - iymin, 10);
+        // When the cursor sits in the working margin past an image edge the clipped
+        // source rect collapses (width or height <= 0). getImageData throws
+        // IndexSizeError on a zero dimension, so blank the magnifier instead.
+        if (sw <= 0 || sh <= 0) {
+            wpd.zoomView.clear();
+            return;
+        }
+        const idata = oriImageCtx.getImageData(sx, sy, sw, sh);
 
         // Make this accurate to subpixel level
-        const xcorr = zratio * (parseInt(ixmin, 10) - ixmin);
-        const ycorr = zratio * (parseInt(iymin, 10) - iymin);
+        const xcorr = zratio * (sx - ixmin);
+        const ycorr = zratio * (sy - iymin);
 
         wpd.zoomView.setZoomImage(idata, parseInt(zxmin + xcorr, 10), parseInt(zymin + ycorr, 10),
             parseInt(zxmax - zxmin, 10), parseInt(zymax - zymin, 10), getRotationMatrix(rotation, zxmax, zymax));
@@ -1000,7 +1052,7 @@ wpd.graphicsWidget = (function() {
                     if (originalImageData == null) {
                         return;
                     }
-                    zoomRatio = Math.max(zoomRatio, getContainZoomRatio());
+                    zoomRatio = Math.max(zoomRatio, getMinZoomRatio());
                     clampPan();
                     scheduleRender();
                 });

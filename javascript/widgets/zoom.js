@@ -17,6 +17,7 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>
 */
 
+// Modified 2026-06-29 by belfner for a clear() to blank the magnifier when the cursor leaves the image.
 var wpd = wpd || {};
 wpd.zoomView = (function() {
     let zCanvas = null;
@@ -108,6 +109,12 @@ wpd.zoomView = (function() {
         zctx.drawImage(tempCanvas, x0, y0, zwidth, zheight);
     }
 
+    // Blank the magnifier image. Used when the cursor sits outside the image (in
+    // the working margin) so there is no source region to magnify.
+    function clear() {
+        zCanvas.width = zCanvas.width;
+    }
+
     function setCoords(imageX, imageY) {
         const axes = wpd.tree.getActiveAxes();
         if (axes != null) {
@@ -133,6 +140,7 @@ wpd.zoomView = (function() {
     return {
         initZoom: init,
         setZoomImage: setZoomImage,
+        clear: clear,
         setCoords: setCoords,
         setZoomRatio: setZoomRatio,
         getZoomRatio: getZoomRatio,

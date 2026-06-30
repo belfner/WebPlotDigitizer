@@ -106,6 +106,9 @@ wpd.graphicsWidget = (function() {
     // can redraw the drawn cursor overlay (and its mode glyph) in place. Null when off-canvas.
     let lastHoverDevicePos = null;
     let lastHoverImagePos = null;
+    // Last hover event, replayed by refreshHover() to redraw the cursor after a repaint that clears
+    // the overlay layers (zoom/pan/resize, or placing/moving a point). Null when off-canvas.
+    let lastHoverEvent = null;
 
     function posn(ev) { // get screen pixel from event
         let mainCanvasPosition = $mainCanvas.getBoundingClientRect();
@@ -317,6 +320,10 @@ wpd.graphicsWidget = (function() {
         } finally {
             viewportRender = false;
         }
+        // render() cleared the overlay layers above. Replay the last hover so the cursor overlay,
+        // mode glyph, and magnifier survive the viewport change instead of vanishing until the next
+        // real mouse move.
+        refreshHover();
     }
 
     // True while a pan/zoom/resize repaint is in progress (see render()).
@@ -571,6 +578,9 @@ wpd.graphicsWidget = (function() {
         if (activeTool != null && activeTool.onRedraw != undefined) {
             activeTool.onRedraw();
         }
+        // resetData() cleared the top (cursor) layer above. Replay the last hover so the cursor
+        // overlay survives placing/moving a point instead of vanishing until the next mouse move.
+        refreshHover();
     }
 
     function clearData() {
@@ -615,6 +625,7 @@ wpd.graphicsWidget = (function() {
         // (and its mode glyph) in place, without waiting for the mouse to move
         lastHoverDevicePos = {x: xpos, y: ypos};
         lastHoverImagePos = imagePos;
+        lastHoverEvent = ev;
         renderCursorOverlay(xpos, ypos, imagePos, ev);
 
         setZoomImage(imagePos.x, imagePos.y);
@@ -656,6 +667,23 @@ wpd.graphicsWidget = (function() {
             return;
         }
         renderCursorOverlay(lastHoverDevicePos.x, lastHoverDevicePos.y, lastHoverImagePos, ev);
+    }
+
+    // Replay the last hover event as if the mouse had moved there again. Re-runs the full hover
+    // pipeline at the stored pointer position: it recomputes imagePos for the current viewport, so
+    // the cursor overlay, the mode glyph (including getHoverMode's nearest-point distance check),
+    // and the magnifier all update. Called after a repaint that clears the overlay layers - a
+    // zoom/pan/resize (render()) or placing/moving a point (resetData()) - so the cursor survives
+    // instead of disappearing until the next real mouse move. No-op while panning, while a
+    // grabbed-point drag drives the overlay itself, or when the pointer is not over the canvas.
+    function refreshHover() {
+        if (isPanning || isToolMoveDragging()) {
+            return;
+        }
+        if (lastHoverEvent == null) {
+            return;
+        }
+        hoverOverCanvas(lastHoverEvent);
     }
 
     // Draw the cursor overlay (crosshair + glyph) and update the magnifier at a given image-px
@@ -1286,6 +1314,7 @@ wpd.graphicsWidget = (function() {
         }
         lastHoverDevicePos = null;
         lastHoverImagePos = null;
+        lastHoverEvent = null;
         if (activeTool != null && activeTool.onMouseOut != undefined) {
             const pos = posn(ev);
             const imagePos = screenToImagePx(pos.x, pos.y);

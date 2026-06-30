@@ -177,7 +177,8 @@ wpd.BrushMaskTool = (function() {
             thicknessScreen = 1,
             thicknessImage = 1,
             canvasPoints = [],
-            imagePoints = [];
+            imagePoints = [],
+            lastPos = null;
 
         // The contextmenu listener in graphicsWidget checks this flag so right-button erase is not
         // interrupted by the browser context menu.
@@ -312,6 +313,7 @@ wpd.BrushMaskTool = (function() {
         };
 
         this.onMouseMove = function(ev, pos, imagePos) {
+            lastPos = pos;
             if (isDrawing === true) {
                 canvasPoints.push(wpd.graphicsWidget.screenToCanvasPx(pos.x, pos.y));
                 imagePoints.push({
@@ -337,7 +339,18 @@ wpd.BrushMaskTool = (function() {
 
         this.onMouseOut = function(ev, pos, imagePos) {
             // Clear only the preview ring; the stroke (if any) finishes on mouseup.
+            lastPos = null;
             wpd.graphicsWidget.resetHover();
+        };
+
+        // On zoom/pan/resize, render() clears the hover layer and calls this. Redraw the
+        // cursor ring at the last known screen position so it survives the viewport change
+        // (radius and canvas position are recomputed from the current zoom inside
+        // drawHoverRing). Without this the ring disappears until the mouse moves again.
+        this.onRedraw = function() {
+            if (lastPos !== null) {
+                drawHoverRing(lastPos);
+            }
         };
 
         this.onRemove = function() {

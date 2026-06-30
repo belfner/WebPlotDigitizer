@@ -100,9 +100,10 @@ wpd.autoCalibration.numericOcr = (function() {
     // the most ink is the label's vertical extent (this drops a thin tick stub and a separate axis-title
     // band). Within that band, inked columns are grouped into runs separated by wide gaps so an adjacent
     // label cannot bleed in: when centerX is given the run nearest that column wins (the label centered
-    // on the tick), otherwise the run with the most ink wins. Returns {x,y,w,h} in crop pixels, or null
-    // when the crop is blank.
-    function _glyphInkBox(crop, lumaThr, gapRows, centerX, axisEdge, diag) {
+    // on the tick), when preferEdge is given the run nearest that crop edge wins ('right'/'left' -- the
+    // y-axis label sits against the rule while any axis title is farther out), otherwise the run with the
+    // most ink wins. Returns {x,y,w,h} in crop pixels, or null when the crop is blank.
+    function _glyphInkBox(crop, lumaThr, gapRows, centerX, axisEdge, preferEdge, diag) {
         const w = crop.width;
         const h = crop.height;
         const data = crop.data;
@@ -240,10 +241,12 @@ wpd.autoCalibration.numericOcr = (function() {
         // Separate adjacent labels: a gap wider than ~0.6 of the band height splits one label from the
         // next, while inter-digit and decimal-point gaps stay within a run.
         const gapCols = Math.max(4, Math.round((bestBot - bestTop + 1) * 0.6));
-        // When isolating by centerX (x-axis labels), ignore runs too narrow to be a glyph: a gridline or
-        // the y-axis rule passing through the band is a few px wide, while a digit is a sizeable fraction
-        // of the band height. A secondary best (no width filter) is the fallback if nothing qualifies.
+        // When isolating by centerX (x-axis labels) or by preferEdge (y-axis labels), ignore runs too
+        // narrow to be a glyph: a gridline or the axis rule passing through the band is a few px wide,
+        // while a digit is a sizeable fraction of the band height. A secondary best (no width filter) is
+        // the fallback if nothing qualifies.
         const minRunWidth = Math.max(4, Math.round((bestBot - bestTop + 1) * 0.2));
+        const widthFiltered = centerX != null || preferEdge != null;
         let chosenL = -1;
         let chosenR = -1;
         let bestColScore = -Infinity;
@@ -273,12 +276,17 @@ wpd.autoCalibration.numericOcr = (function() {
                 }
                 x++;
             }
-            // Higher score wins. With centerX: prefer the nearest run (negative distance). Otherwise:
-            // prefer the run with the most ink.
+            // Higher score wins. With centerX: prefer the nearest run (negative distance). With
+            // preferEdge: prefer the run nearest the axis-facing crop edge ('right' -> largest right
+            // column, 'left' -> smallest left column). Otherwise: prefer the run with the most ink.
             let score;
             if (centerX != null) {
                 const dist = centerX < runL ? runL - centerX : (centerX > runR ? centerX - runR : 0);
                 score = -dist;
+            } else if (preferEdge === 'right') {
+                score = runR;
+            } else if (preferEdge === 'left') {
+                score = -runL;
             } else {
                 score = ink;
             }
@@ -287,7 +295,7 @@ wpd.autoCalibration.numericOcr = (function() {
                 fallbackL = runL;
                 fallbackR = runR;
             }
-            if ((centerX == null || (runR - runL + 1) >= minRunWidth) && score > bestColScore) {
+            if ((!widthFiltered || (runR - runL + 1) >= minRunWidth) && score > bestColScore) {
                 bestColScore = score;
                 chosenL = runL;
                 chosenR = runR;
@@ -541,7 +549,7 @@ wpd.autoCalibration.numericOcr = (function() {
         // Locate the glyph ink in the grayscale crop (dark text -> luma below the threshold). centerX
         // isolates the label centered on the tick from an adjacent label that shares the band; axisEdge
         // picks the text band nearest the axis (the label) over a deeper band's axis title.
-        const box = _glyphInkBox(grayData, 128, 3, opts.centerX, opts.axisEdge, opts.diag);
+        const box = _glyphInkBox(grayData, 128, 3, opts.centerX, opts.axisEdge, opts.preferEdge, opts.diag);
         if (box === null) {
             return null;
         }
@@ -590,9 +598,12 @@ wpd.autoCalibration.numericOcr = (function() {
             outPad: opts.outPad,
             maxScale: opts.maxScale
         };
-        // y-axis labels sit left of the rule; the leftward tick mark lands on the crop's right edge.
+        // y-axis labels sit left of the rule; the leftward tick mark lands on the crop's right edge, and
+        // the label ink sits against the rule (right edge) while any axis title is farther left, so the
+        // glyph run nearest the right edge is the label.
         const yCropOpts = Object.assign({}, cropOpts, {
-            tickEdge: 'right'
+            tickEdge: 'right',
+            preferEdge: 'right'
         });
         const labelOffset = opts.labelOffset != null ? opts.labelOffset : 2;
         const minInkRatio = opts.minInkRatio != null ? opts.minInkRatio : 0.0025;
@@ -670,7 +681,10 @@ wpd.autoCalibration.numericOcr = (function() {
                 w: x1 - x0,
                 h: y1 - y0
             };
-            const cropImageData = _cropNormalize(sourceCanvas, rect, yCropOpts);
+            const diag = {};
+            const cropImageData = _cropNormalize(sourceCanvas, rect, Object.assign({}, yCropOpts, {
+                diag: diag
+            }));
             if (cropImageData === null || _inkRatio(cropImageData) < minInkRatio) {
                 return; // skip empty/blank label zones
             }
@@ -679,7 +693,8 @@ wpd.autoCalibration.numericOcr = (function() {
                 axis: 'y',
                 tickIndex: i,
                 bbox: rect,
-                imageData: cropImageData
+                imageData: cropImageData,
+                diag: diag
             });
         });
 

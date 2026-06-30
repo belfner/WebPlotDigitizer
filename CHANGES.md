@@ -79,6 +79,8 @@ upstream provides via the proprietary cloud backend:
 - Added an unofficial / non-affiliation / source notice to the About popup
   (`templates/_popups.html`), including links to the exact build commit (`SOURCE.txt`) and to the
   bundled third-party notices (`THIRD_PARTY_NOTICES.md`).
+- Suppressed native text selection on the canvas stack by adding `user-select: none` to `#canvasDiv`
+  (`styles/styles.css`), so click-drag interactions never highlight surrounding page text.
 
 ## Bundled third-party components
 
